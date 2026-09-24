@@ -1,33 +1,14 @@
-import fs from "node:fs";
-import path from "node:path";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { backupDir, createBackup, listBackups } from "@/lib/backup";
 
 export const dynamic = "force-dynamic";
 
-function backupDir() {
-  const dir =
-    process.env.BACKUP_DIR?.trim() || path.join(process.cwd(), "backups");
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-function stamp() {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(
-    d.getHours()
-  )}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
-}
-
-async function createBackup() {
+async function runBackup() {
   "use server";
   let error: string | null = null;
 
   try {
-    const file = path.join(backupDir(), `hotel-dunary_${stamp()}.db`);
-    const sqlPath = file.replace(/\\/g, "/").replace(/'/g, "''");
-    await prisma.$executeRawUnsafe(`VACUUM INTO '${sqlPath}'`);
+    await createBackup();
   } catch (e) {
     error = e instanceof Error ? e.message : "Error desconocido.";
   }
@@ -46,16 +27,7 @@ export default async function RespaldoPage({
 }) {
   const { error, ok } = await searchParams;
   const dir = backupDir();
-
-  const backups = fs
-    .readdirSync(dir)
-    .filter((name) => name.endsWith(".db"))
-    .map((name) => {
-      const stat = fs.statSync(path.join(dir, name));
-      return { name, size: stat.size, date: stat.mtime };
-    })
-    .sort((a, b) => b.date.getTime() - a.date.getTime())
-    .slice(0, 20);
+  const backups = listBackups().slice(0, 20);
 
   return (
     <div className="space-y-8">
@@ -76,7 +48,7 @@ export default async function RespaldoPage({
         <p className="text-sm text-slate-600">
           Las copias se guardan en: <strong>{dir}</strong>
         </p>
-        <form action={createBackup}>
+        <form action={runBackup}>
           <button className={button}>Crear copia ahora</button>
         </form>
       </section>
