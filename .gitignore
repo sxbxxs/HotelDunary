@@ -45,3 +45,6 @@ next-env.d.ts
 # Base de datos local
 *.db
 *.db-journal
+
+# Copias de seguridad
+/backups/
