@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -13,37 +15,50 @@ async function createGuest(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const email = String(formData.get("email") ?? "").trim() || null;
 
-  if (!firstName || !lastName || !documentType || !documentNumber) return;
+  if (!firstName || !lastName || !documentType || !documentNumber) {
+    redirect("/huespedes?error=" + encodeURIComponent("Faltan datos obligatorios."));
+  }
 
   const exists = await prisma.guest.findUnique({
     where: { documentType_documentNumber: { documentType, documentNumber } },
   });
-  if (!exists) {
-    await prisma.guest.create({
-      data: {
-        firstName,
-        lastName,
-        documentType,
-        documentNumber,
-        nationality,
-        phone,
-        email,
-      },
-    });
+  if (exists) {
+    redirect(
+      "/huespedes?error=" +
+        encodeURIComponent(
+          `Ya existe un huésped con ese documento: ${exists.firstName} ${exists.lastName}.`
+        )
+    );
   }
+
+  await prisma.guest.create({
+    data: {
+      firstName,
+      lastName,
+      documentType,
+      documentNumber,
+      nationality,
+      phone,
+      email,
+    },
+  });
+
   revalidatePath("/huespedes");
+  redirect("/huespedes?ok=1");
 }
 
 const input = "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
 const button =
   "rounded-md bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700";
+const smallButton =
+  "rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100";
 
 export default async function HuespedesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; error?: string; ok?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, error, ok } = await searchParams;
   const search = q?.trim();
 
   const guests = await prisma.guest.findMany({
@@ -63,6 +78,17 @@ export default async function HuespedesPage({
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-semibold">Huéspedes</h1>
+
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+      {ok && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Huésped guardado.
+        </div>
+      )}
 
       <section>
         <h2 className="mb-3 text-lg font-medium">Nuevo huésped</h2>
@@ -98,7 +124,7 @@ export default async function HuespedesPage({
           </form>
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">
               <tr>
@@ -107,12 +133,13 @@ export default async function HuespedesPage({
                 <th className="px-4 py-2">Nacionalidad</th>
                 <th className="px-4 py-2">Teléfono</th>
                 <th className="px-4 py-2">Correo</th>
+                <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {guests.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-3 text-slate-500">
+                  <td colSpan={6} className="px-4 py-3 text-slate-500">
                     {search
                       ? "No se encontraron huéspedes."
                       : "Todavía no hay huéspedes registrados."}
@@ -130,6 +157,11 @@ export default async function HuespedesPage({
                   <td className="px-4 py-2">{g.nationality ?? "-"}</td>
                   <td className="px-4 py-2">{g.phone ?? "-"}</td>
                   <td className="px-4 py-2">{g.email ?? "-"}</td>
+                  <td className="px-4 py-2">
+                    <Link href={`/huespedes/${g.id}`} className={smallButton}>
+                      Editar
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
