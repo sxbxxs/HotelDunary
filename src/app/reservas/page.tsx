@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-
+import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -255,6 +255,11 @@ export default async function ReservasPage({
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex gap-2">
+                        {(r.status === "CONFIRMED" || r.status === "CHECKED_IN") && (
+                            <Link href={`/reservas/${r.id}`} className={smallButton}>
+                                Editar
+                            </Link>
+                        )}
                         {r.status === "CONFIRMED" && (
                           <>
                             <form action={setStatus}>
