@@ -37,6 +37,13 @@ export default async function TableroPage({
     include: { product: true },
   });
 
+  
+  const deskStocks = await prisma.frontDeskStock.findMany({
+    where: { quantity: { gt: 0 } },
+    include: { product: true },
+    orderBy: { product: { name: "asc" } },
+  });
+
   const cards = rooms.map((room) => {
     const reservation = room.reservations[0];
     const isOccupied = reservation?.status === "CHECKED_IN";
@@ -98,7 +105,15 @@ export default async function TableroPage({
         </div> 
       )}
 
-      <RoomBoard rooms={cards} />
+        <RoomBoard
+        rooms={cards}
+        deskProducts={deskStocks.map((s) => ({
+          productId: s.productId,
+          name: s.product.name,
+          price: s.product.price,
+          quantity: s.quantity,
+        }))}
+      />
     </div>
   );
 }

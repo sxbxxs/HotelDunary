@@ -7,6 +7,7 @@ import {
   markRoomClean,
   addConsumptionFromBoard,
   registerPaymentFromBoard,
+  sellFromDesk,
 } from "./actions";
 
 type RoomCard = {
@@ -37,7 +38,15 @@ const smallButton =
   "rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100";
 const input = "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
 
-export default function RoomBoard({ rooms }: { rooms: RoomCard[] }) {
+type DeskProduct = { productId: number; name: string; price: number; quantity: number };
+
+export default function RoomBoard({
+  rooms,
+  deskProducts,
+}: {
+  rooms: RoomCard[];
+  deskProducts: DeskProduct[];
+}) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selected = rooms.find((r) => r.id === selectedId) ?? null;
   const [search, setSearch] = useState("");
@@ -62,7 +71,43 @@ export default function RoomBoard({ rooms }: { rooms: RoomCard[] }) {
 
   return (
     <div>
-            <div className="mb-4">
+              {deskProducts.length > 0 && (
+        <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="mb-3 text-sm font-medium text-slate-600">
+            Venta en recepción (exhibidoras)
+          </h2>
+          <form action={sellFromDesk} className="flex flex-wrap items-end gap-3">
+            <label className="text-xs text-slate-500">
+              Producto
+              <select name="productId" required className={`${input} mt-1 block`}>
+                {deskProducts.map((p) => (
+                  <option key={p.productId} value={p.productId}>
+                    {p.name} ({p.quantity} disp., {p.price.toLocaleString("es-CO")})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-500">
+              Cantidad
+              <input
+                name="quantity"
+                type="number"
+                min="1"
+                defaultValue="1"
+                className={`${input} mt-1 block w-20`}
+              />
+            </label>
+            <select name="method" className={input}>
+              <option value="CASH">Efectivo</option>
+              <option value="CARD">Tarjeta</option>
+              <option value="TRANSFER">Transferencia</option>
+              <option value="OTHER">Otro</option>
+            </select>
+            <button className={button}>Vender</button>
+          </form>
+        </div>
+      )}
+        <div className="mb-4">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}

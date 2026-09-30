@@ -192,3 +192,44 @@ export async function registerPaymentFromBoard(formData: FormData) {
   revalidateAll();
   redirect("/tablero?ok=1");
 }
+
+export async function sellFromDesk(formData: FormData) {
+  const productId = Number(formData.get("productId"));
+  const quantity = Number(formData.get("quantity"));
+  const method = String(formData.get("method"));
+
+  if (!productId || !(quantity > 0) || !["CASH", "CARD", "TRANSFER", "OTHER"].includes(method)) {
+    redirect("/tablero?error=" + encodeURIComponent("Elige un producto y una cantidad válida."));
+  }
+
+  const error = await prisma.$transaction(async (tx) => {
+    const stock = await tx.frontDeskStock.findUnique({
+      where: { productId },
+      include: { product: true },
+    });
+    if (!stock) return "Ese producto no existe en la exhibidora.";
+    if (stock.quantity < quantity) {
+      return `Solo quedan ${stock.quantity} unidades de ${stock.product.name}.`;
+    }
+
+    await tx.frontDeskStock.update({
+      where: { productId },
+      data: { quantity: { decrement: quantity } },
+    });
+
+    await tx.sale.create({
+      data: {
+        productId,
+        quantity,
+        unitPrice: stock.product.price,
+        method: method as "CASH" | "CARD" | "TRANSFER" | "OTHER",
+      },
+    });
+    return null;
+  });
+
+  if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+  revalidatePath("/tablero");
+  revalidatePath("/inventario");
+  redirect("/tablero?ok=1");
+}
