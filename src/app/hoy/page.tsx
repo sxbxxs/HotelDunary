@@ -1,9 +1,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { reservationBalance } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
 
 async function setStatus(formData: FormData) {
   "use server";
@@ -45,7 +47,7 @@ export default async function HoyPage() {
   );
   const tomorrow = new Date(today.getTime() + DAY_MS);
 
-  const include = { guest: true, room: true, payments: true };
+    const include = { guest: true, room: true, payments: true, consumptions: true };
 
   const [arrivals, departures, inHouse, totalRooms] = await Promise.all([
     // Llegan hoy y todavía no han hecho check-in
@@ -83,12 +85,8 @@ export default async function HoyPage() {
     orderBy: { checkOut: "asc" },
   });
 
-  function balanceOf(r: (typeof inHouse)[number]) {
-    const nights = Math.round(
-      (r.checkOut.getTime() - r.checkIn.getTime()) / DAY_MS
-    );
-    const paid = r.payments.reduce((sum, p) => sum + p.amount, 0);
-    return nights * r.nightlyRate - paid;
+    function balanceOf(r: (typeof inHouse)[number]) {
+    return reservationBalance(r);
   }
 
   const occupancy = totalRooms
