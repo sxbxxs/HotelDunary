@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { reservationTotal } from "@/lib/billing";
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -141,7 +142,7 @@ export default async function ReservasPage({
     prisma.reservation.findMany({
       orderBy: { checkIn: "desc" },
       take: 100,
-      include: { room: true, guest: true },
+            include: { room: true, guest: true, consumptions: true, payments: true },
     }),
   ]);
 
@@ -247,7 +248,7 @@ export default async function ReservasPage({
                     <td className="px-4 py-2">{fmt(r.checkIn)}</td>
                     <td className="px-4 py-2">{fmt(r.checkOut)}</td>
                     <td className="px-4 py-2">{nights}</td>
-                    <td className="px-4 py-2">{cop.format(nights * r.nightlyRate)}</td>
+                    <td className="px-4 py-2">{cop.format(reservationTotal(r))}</td>
                     <td className="px-4 py-2">
                       <span className={`rounded-full px-2 py-1 text-xs ${st.className}`}>
                         {st.text}

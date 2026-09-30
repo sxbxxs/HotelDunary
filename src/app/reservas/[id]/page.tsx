@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { reservationBalance, reservationTotal, nightsOf } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,60 @@ function fmt(d: Date) {
 
 function toInput(d: Date) {
   return d.toISOString().slice(0, 10);
+}
+
+async function addConsumption(formData: FormData) {
+  "use server";
+  const reservationId = Number(formData.get("reservationId"));
+  const productId = Number(formData.get("productId"));
+  const quantity = Number(formData.get("quantity"));
+
+  const back = `/reservas/${reservationId}`;
+
+  if (!reservationId || !productId || !(quantity > 0)) {
+    redirect(back + "?error=" + encodeURIComponent("Elige un producto y una cantidad válida."));
+  }
+
+  const error = await prisma.$transaction(async (tx) => {
+    const reservation = await tx.reservation.findUnique({ where: { id: reservationId } });
+    if (!reservation) return "La reserva no existe.";
+    if (reservation.status !== "CHECKED_IN") {
+      return "Solo se puede registrar consumo mientras el huésped está hospedado.";
+    }
+
+    const stock = await tx.roomStock.findUnique({
+      where: { roomId_productId: { roomId: reservation.roomId, productId } },
+      include: { product: true },
+    });
+    if (!stock) return "Ese producto no está en la canasta de esta habitación.";
+    if (stock.quantity < quantity) {
+      return `Solo quedan ${stock.quantity} unidades de ${stock.product.name} en esta habitación.`;
+    }
+
+    await tx.roomStock.update({
+      where: { roomId_productId: { roomId: reservation.roomId, productId } },
+      data: { quantity: { decrement: quantity } },
+    });
+
+    await tx.consumption.create({
+      data: {
+        reservationId,
+        productId,
+        quantity,
+        unitPrice: stock.product.price,
+      },
+    });
+    return null;
+  });
+
+  if (error) redirect(back + "?error=" + encodeURIComponent(error));
+
+  revalidatePath(`/reservas/${reservationId}`);
+  revalidatePath("/reservas");
+  revalidatePath("/pagos");
+  revalidatePath("/hoy");
+  revalidatePath("/inventario");
+  redirect(back + "?ok=1");
 }
 
 async function updateReservation(formData: FormData) {
@@ -75,7 +130,6 @@ async function updateReservation(formData: FormData) {
       return "La habitación no está disponible.";
     }
 
-    // Igual que al crear, pero ignorando esta misma reserva
     const conflict = await tx.reservation.findFirst({
       where: {
         id: { not: id },
@@ -91,7 +145,6 @@ async function updateReservation(formData: FormData) {
       )} al ${fmt(conflict.checkOut)}.`;
     }
 
-    // Misma habitación: se respeta la tarifa acordada. Otra habitación: tarifa de su tipo.
     const nightlyRate =
       roomId === current.roomId ? current.nightlyRate : room.roomType.nightlyRate;
 
@@ -138,9 +191,19 @@ export default async function EditarReservaPage({
 
   const reservation = await prisma.reservation.findUnique({
     where: { id: reservationId },
-    include: { guest: true, room: true, payments: true },
+    include: {
+      guest: true,
+      room: true,
+      payments: true,
+      consumptions: { include: { product: true }, orderBy: { consumedAt: "desc" } },
+    },
   });
   if (!reservation) notFound();
+
+  const roomStock = await prisma.roomStock.findMany({
+    where: { roomId: reservation.roomId, quantity: { gt: 0 } },
+    include: { product: true },
+  });
 
   const rooms = await prisma.room.findMany({
     where: { OR: [{ active: true }, { id: reservation.roomId }] },
@@ -150,11 +213,11 @@ export default async function EditarReservaPage({
 
   const editable =
     reservation.status === "CONFIRMED" || reservation.status === "CHECKED_IN";
-  const nights = Math.round(
-    (reservation.checkOut.getTime() - reservation.checkIn.getTime()) / DAY_MS
-  );
-  const total = nights * reservation.nightlyRate;
+
+  const nights = nightsOf(reservation);
+  const total = reservationTotal(reservation);
   const paid = reservation.payments.reduce((sum, p) => sum + p.amount, 0);
+  const balance = reservationBalance(reservation);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -166,7 +229,10 @@ export default async function EditarReservaPage({
           Editar reserva de {reservation.guest.firstName} {reservation.guest.lastName}
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Total actual: {cop.format(total)} · Pagado: {cop.format(paid)}
+          Total actual: {cop.format(total)} · Pagado: {cop.format(paid)} · Saldo:{" "}
+          <span className={balance > 0 ? "text-red-600" : "text-emerald-600"}>
+            {balance > 0 ? cop.format(balance) : "Al día"}
+          </span>
         </p>
       </div>
 
@@ -174,6 +240,67 @@ export default async function EditarReservaPage({
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
         </div>
+      )}
+
+      {reservation.status === "CHECKED_IN" && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium">Consumo del minibar</h2>
+          {roomStock.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Esta habitación no tiene productos disponibles en su canasta.
+            </p>
+          ) : (
+            <form action={addConsumption} className="flex flex-wrap items-end gap-3">
+              <input type="hidden" name="reservationId" value={reservation.id} />
+              <label className={label}>
+                Producto
+                <select name="productId" required className={`${input} mt-1 block`}>
+                  {roomStock.map((s) => (
+                    <option key={s.productId} value={s.productId}>
+                      {s.product.name} ({s.quantity} disponibles, {cop.format(s.product.price)})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={label}>
+                Cantidad
+                <input
+                  name="quantity"
+                  type="number"
+                  min="1"
+                  defaultValue="1"
+                  className={`${input} mt-1 block w-20`}
+                />
+              </label>
+              <button className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700">
+                Registrar consumo
+              </button>
+            </form>
+          )}
+
+          {reservation.consumptions.length > 0 && (
+            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-100 text-left">
+                  <tr>
+                    <th className="px-4 py-2">Producto</th>
+                    <th className="px-4 py-2">Cantidad</th>
+                    <th className="px-4 py-2">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reservation.consumptions.map((c) => (
+                    <tr key={c.id} className="border-t border-slate-100">
+                      <td className="px-4 py-2">{c.product.name}</td>
+                      <td className="px-4 py-2">{c.quantity}</td>
+                      <td className="px-4 py-2">{cop.format(c.quantity * c.unitPrice)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
 
       {!editable ? (
