@@ -10,7 +10,8 @@ const links = [
   { href: "/huespedes", label: "Huéspedes" },
   { href: "/habitaciones", label: "Habitaciones" },
   { href: "/pagos", label: "Caja y pagos" },
-    { href: "/respaldo", label: "Copias de seguridad" },
+  { href: "/inventario", label: "Inventario" },
+  { href: "/respaldo", label: "Copias de seguridad" },
 ];
 
 export default function Sidebar() {

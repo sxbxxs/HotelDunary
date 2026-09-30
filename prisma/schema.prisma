@@ -53,6 +53,7 @@ model Room {
   roomTypeId   Int
   roomType     RoomType           @relation(fields: [roomTypeId], references: [id])
   reservations Reservation[]
+  roomStocks   RoomStock[]
 }
 
 model Guest {
@@ -89,6 +90,7 @@ model Reservation {
   guest      Guest              @relation("MainGuest", fields: [guestId], references: [id])
   companions ReservationGuest[]
   payments   Payment[]
+  consumptions Consumption[]
 
   @@index([roomId, checkIn, checkOut])
 }
@@ -110,4 +112,63 @@ model Payment {
   notes         String?
   reservationId Int
   reservation   Reservation   @relation(fields: [reservationId], references: [id])
+}
+
+enum ProductCategory {
+  MINIBAR
+  EXHIBIDORA_BEBIDAS
+  EXHIBIDORA_COMIDA
+}
+
+model Product {
+  id           Int              @id @default(autoincrement())
+  name         String           @unique
+  price        Int
+  category     ProductCategory
+  active       Boolean          @default(true)
+  roomStocks   RoomStock[]
+  deskStock    FrontDeskStock?
+  consumptions Consumption[]
+  sales        Sale[]
+}
+
+// Cuánto hay de cada producto de minibar en la canasta de cada habitación
+model RoomStock {
+  roomId    Int
+  productId Int
+  quantity  Int     @default(0)
+  room      Room    @relation(fields: [roomId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@id([roomId, productId])
+}
+
+// Cuánto hay de cada producto de las exhibidoras, en recepción
+model FrontDeskStock {
+  productId Int     @id
+  quantity  Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+// Lo que un huésped consumió del minibar de su habitación; se suma a su cuenta
+model Consumption {
+  id            Int         @id @default(autoincrement())
+  reservationId Int
+  productId     Int
+  quantity      Int
+  unitPrice     Int // precio congelado al momento del consumo
+  consumedAt    DateTime    @default(now())
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  product       Product     @relation(fields: [productId], references: [id])
+}
+
+// Venta directa en recepción (exhibidoras), sin ligarse a ninguna reserva
+model Sale {
+  id         Int      @id @default(autoincrement())
+  productId  Int
+  quantity   Int
+  unitPrice  Int
+  method     PaymentMethod
+  soldAt     DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id])
 }
