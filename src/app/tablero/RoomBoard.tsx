@@ -40,7 +40,13 @@ const input = "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
 export default function RoomBoard({ rooms }: { rooms: RoomCard[] }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selected = rooms.find((r) => r.id === selectedId) ?? null;
+  const [search, setSearch] = useState("");
 
+  const term = search.trim().toLowerCase();
+  const matches =
+    term.length > 0
+      ? rooms.filter((r) => r.guestName.toLowerCase().includes(term))
+      : [];
   const floors = Array.from(new Set(rooms.map((r) => r.floor))).sort(
     (a, b) => a - b
   );
@@ -56,6 +62,31 @@ export default function RoomBoard({ rooms }: { rooms: RoomCard[] }) {
 
   return (
     <div>
+            <div className="mb-4">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar huésped por nombre"
+          className={`${input} w-full max-w-sm`}
+        />
+        {term.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {matches.length === 0 ? (
+              <span className="text-sm text-slate-500">Sin resultados.</span>
+            ) : (
+              matches.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setSelectedId(r.id)}
+                  className={smallButton}
+                >
+                  Hab. {r.number} · {r.guestName}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
       <div className="mb-4 flex flex-wrap gap-4 text-sm">
         <span className="flex items-center gap-2">
           <span className="h-4 w-4 rounded border-2 border-sky-500 bg-white" /> Libre
@@ -87,9 +118,13 @@ export default function RoomBoard({ rooms }: { rooms: RoomCard[] }) {
                 <button
                   key={room.id}
                   onClick={() => setSelectedId(room.id)}
-                  className={`flex min-h-24 flex-col justify-between rounded-lg p-3 text-left text-sm transition ${cardClass(
+                                    className={`flex min-h-24 flex-col justify-between rounded-lg p-3 text-left text-sm transition ${cardClass(
                     room
-                  )} ${selectedId === room.id ? "ring-2 ring-offset-2 ring-slate-900" : ""}`}
+                  )} ${
+                    selectedId === room.id || matches.some((m) => m.id === room.id)
+                      ? "ring-2 ring-offset-2 ring-slate-900"
+                      : ""
+                  }`}
                 >
                   <div className="flex items-baseline justify-between">
                     <span className="text-base font-semibold">{room.number}</span>
@@ -120,14 +155,23 @@ export default function RoomBoard({ rooms }: { rooms: RoomCard[] }) {
         </div>
       ))}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
-        {!selected ? (
-          <p className="text-sm text-slate-500">
-            Toca una habitación para ver sus opciones.
-          </p>
-        ) : (
-          <div>
-            <div className="mb-3 flex items-baseline justify-between">
+            {selected && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setSelectedId(null)}
+        >
+                    <div
+            className="relative max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+                        <button
+              onClick={() => setSelectedId(null)}
+              className="absolute right-4 top-4 text-sm text-slate-400 hover:text-slate-700"
+            >
+              ✕
+            </button>
+
+            <div className="mb-3 pr-8">
               <h3 className="text-lg font-medium">
                 Habitación {selected.number} · {selected.roomTypeName}
               </h3>
@@ -267,9 +311,9 @@ export default function RoomBoard({ rooms }: { rooms: RoomCard[] }) {
                 <button className={button}>Marcar como limpia</button>
               </form>
             )}
-          </div>
-        )}
-      </div>
+                    </div>
+        </div>
+      )}
     </div>
   );
 }
