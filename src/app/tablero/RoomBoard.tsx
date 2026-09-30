@@ -1,11 +1,12 @@
 "use client";
-
 import { useState } from "react";
 import {
   quickReserve,
   checkInReservation,
   checkOutReservation,
   markRoomClean,
+  addConsumptionFromBoard,
+  registerPaymentFromBoard,
 } from "./actions";
 
 type RoomCard = {
@@ -19,6 +20,8 @@ type RoomCard = {
   isOccupied: boolean;
   isArriving: boolean;
   balance: number;
+  total: number;
+  products: { productId: number; name: string; price: number; quantity: number }[];
 };
 
 const housekeepingLabel: Record<string, string> = {
@@ -140,10 +143,10 @@ export default function RoomBoard({ rooms }: { rooms: RoomCard[] }) {
             {(selected.isOccupied || selected.isArriving) && (
               <p className="mb-3 text-sm">
                 Huésped: <span className="font-medium">{selected.guestName}</span>
-                {selected.isOccupied && (
+                  {selected.isOccupied && (
                   <>
                     {" "}
-                    · Saldo:{" "}
+                    · Total: {selected.total.toLocaleString("es-CO")} · Saldo:{" "}
                     <span
                       className={
                         selected.balance > 0
@@ -192,11 +195,70 @@ export default function RoomBoard({ rooms }: { rooms: RoomCard[] }) {
               </form>
             )}
 
-            {selected.isOccupied && selected.reservationId && (
-              <form action={checkOutReservation}>
-                <input type="hidden" name="reservationId" value={selected.reservationId} />
-                <button className={button}>Hacer check-out</button>
-              </form>
+                        {selected.isOccupied && selected.reservationId && (
+              <div className="space-y-4">
+                {selected.products.length > 0 && (
+                  <form
+                    action={addConsumptionFromBoard}
+                    className="flex flex-wrap items-end gap-2"
+                  >
+                    <input type="hidden" name="reservationId" value={selected.reservationId} />
+                    <label className="text-xs text-slate-500">
+                      Consumo del minibar
+                      <select name="productId" required className={`${input} mt-1 block`}>
+                        {selected.products.map((p) => (
+                          <option key={p.productId} value={p.productId}>
+                            {p.name} ({p.quantity} disp., {p.price.toLocaleString("es-CO")})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-xs text-slate-500">
+                      Cant.
+                      <input
+                        name="quantity"
+                        type="number"
+                        min="1"
+                        defaultValue="1"
+                        className={`${input} mt-1 block w-16`}
+                      />
+                    </label>
+                    <button className={smallButton}>Registrar consumo</button>
+                  </form>
+                )}
+
+                {selected.balance > 0 && (
+                  <form
+                    action={registerPaymentFromBoard}
+                    className="flex flex-wrap items-end gap-2"
+                  >
+                    <input type="hidden" name="reservationId" value={selected.reservationId} />
+                    <label className="text-xs text-slate-500">
+                      Registrar pago
+                      <input
+                        name="amount"
+                        type="number"
+                        min="1"
+                        placeholder="Valor"
+                        required
+                        className={`${input} mt-1 block w-28`}
+                      />
+                    </label>
+                    <select name="method" className={input}>
+                      <option value="CASH">Efectivo</option>
+                      <option value="CARD">Tarjeta</option>
+                      <option value="TRANSFER">Transferencia</option>
+                      <option value="OTHER">Otro</option>
+                    </select>
+                    <button className={smallButton}>Registrar pago</button>
+                  </form>
+                )}
+
+                <form action={checkOutReservation}>
+                  <input type="hidden" name="reservationId" value={selected.reservationId} />
+                  <button className={button}>Hacer check-out</button>
+                </form>
+              </div>
             )}
 
             {!selected.isOccupied && !selected.isArriving && selected.status !== "CLEAN" && (

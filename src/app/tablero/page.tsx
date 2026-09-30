@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { reservationBalance } from "@/lib/billing";
 import RoomBoard from "./RoomBoard"; 
+import { reservationTotal } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,11 @@ export default async function TableroPage({
     },
   });
 
+  const roomStocks = await prisma.roomStock.findMany({
+    where: { quantity: { gt: 0 } },
+    include: { product: true },
+  });
+
   const cards = rooms.map((room) => {
     const reservation = room.reservations[0];
     const isOccupied = reservation?.status === "CHECKED_IN";
@@ -48,7 +54,7 @@ export default async function TableroPage({
         })
       : 0;
 
-    return {
+        return {
       id: room.id,
       number: room.number,
       floor: room.floor ?? 0,
@@ -61,6 +67,18 @@ export default async function TableroPage({
       isOccupied,
       isArriving,
       balance,
+            products: roomStocks
+        .filter((s) => s.roomId === room.id)
+        .map((s) => ({ productId: s.productId, name: s.product.name, price: s.product.price, quantity: s.quantity })),
+      total: reservation
+        ? reservationTotal({
+            checkIn: reservation.checkIn,
+            checkOut: reservation.checkOut,
+            nightlyRate: reservation.nightlyRate,
+            payments: reservation.payments,
+            consumptions: reservation.consumptions,
+          })
+        : 0,
     };
   });
 
