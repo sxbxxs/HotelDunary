@@ -10,6 +10,7 @@ const links = [
   { href: "/reservas", label: "Reservas" },
   { href: "/huespedes", label: "Huéspedes" },
   { href: "/pagos", label: "Caja y pagos" },
+  { href: "/egresos", label: "Egresos" },
   { href: "/respaldo", label: "Copias de seguridad" },
 ];
 
