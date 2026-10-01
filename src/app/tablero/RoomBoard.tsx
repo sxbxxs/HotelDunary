@@ -50,13 +50,23 @@ export default function RoomBoard({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selected = rooms.find((r) => r.id === selectedId) ?? null;
   const [search, setSearch] = useState("");
+  
+    const [filter, setFilter] = useState<"all" | "free" | "occupied" | "dirty" | "arriving">("all");
+
+  const filteredRooms = rooms.filter((r) => {
+    if (filter === "free") return !r.isOccupied && !r.isArriving && r.status === "CLEAN";
+    if (filter === "occupied") return r.isOccupied;
+    if (filter === "dirty") return !r.isOccupied && !r.isArriving && r.status === "DIRTY";
+    if (filter === "arriving") return r.isArriving;
+    return true;
+  });
 
   const term = search.trim().toLowerCase();
   const matches =
     term.length > 0
       ? rooms.filter((r) => r.guestName.toLowerCase().includes(term))
       : [];
-  const floors = Array.from(new Set(rooms.map((r) => r.floor))).sort(
+  const floors = Array.from(new Set(filteredRooms.map((r) => r.floor))).sort(
     (a, b) => a - b
   );
 
@@ -132,10 +142,59 @@ export default function RoomBoard({
           </div>
         )}
       </div>
-      <div className="mb-4 flex flex-wrap gap-4 text-sm">
-        <span className="flex items-center gap-2">
-          <span className="h-4 w-4 rounded border-2 border-sky-500 bg-white" /> Libre
-        </span>
+                <div className="mb-4 flex flex-wrap gap-2">
+        <button
+          onClick={() => setFilter("all")}
+          className={`rounded-md border px-3 py-1.5 text-sm ${
+            filter === "all"
+              ? "border-slate-900 bg-slate-900 text-white"
+              : "border-slate-300 bg-white hover:bg-slate-100"
+          }`}
+        >
+          Todas ({rooms.length})
+        </button>
+        <button
+          onClick={() => setFilter("free")}
+          className={`rounded-md border-2 px-3 py-1.5 text-sm ${
+            filter === "free"
+              ? "border-sky-500 bg-sky-500 text-white"
+              : "border-sky-500 bg-white text-sky-700 hover:bg-sky-50"
+          }`}
+        >
+          Libres ({rooms.filter((r) => !r.isOccupied && !r.isArriving && r.status === "CLEAN").length})
+        </button>
+            <button
+          onClick={() => setFilter("occupied")}
+          className={`rounded-md border border-sky-500 bg-sky-500 px-3 py-1.5 text-sm text-white ${
+            filter === "occupied" ? "ring-2 ring-offset-2 ring-sky-700" : ""
+          }`}
+        >
+          Ocupadas ({rooms.filter((r) => r.isOccupied).length})
+        </button>
+                <button
+          onClick={() => setFilter("dirty")}
+          className={`rounded-md border border-amber-400 bg-amber-400 px-3 py-1.5 text-sm text-amber-950 ${
+            filter === "dirty" ? "ring-2 ring-offset-2 ring-amber-600" : ""
+          }`}
+        >
+          Sucias ({rooms.filter((r) => !r.isOccupied && !r.isArriving && r.status === "DIRTY").length})
+        </button>
+        <button
+          onClick={() => setFilter("arriving")}
+          className={`rounded-md border-2 border-dashed px-3 py-1.5 text-sm ${
+            filter === "arriving"
+              ? "border-sky-500 bg-sky-100 text-sky-800"
+              : "border-sky-500 bg-white text-sky-700 hover:bg-sky-50"
+          }`}
+        >
+          Reservadas hoy ({rooms.filter((r) => r.isArriving).length})
+        </button>
+      </div>
+            
+          <div className="mb-4 flex flex-wrap gap-4 text-sm">
+            <span className="flex items-center gap-2">
+              <span className="h-4 w-4 rounded border-2 border-sky-500 bg-white" /> Libre
+            </span>
         <span className="flex items-center gap-2">
           <span className="h-4 w-4 rounded bg-sky-500" /> Ocupada
         </span>
@@ -157,7 +216,7 @@ export default function RoomBoard({
             {floor === 0 ? "Sin piso asignado" : `Piso ${floor}`}
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
-            {rooms
+            {filteredRooms
               .filter((r) => r.floor === floor)
               .map((room) => (
                 <button
