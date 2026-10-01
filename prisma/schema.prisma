@@ -172,3 +172,18 @@ model Sale {
   soldAt     DateTime @default(now())
   product    Product  @relation(fields: [productId], references: [id])
 }
+
+enum UserRole {
+  ADMIN
+  RECEPCION
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(RECEPCION)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
