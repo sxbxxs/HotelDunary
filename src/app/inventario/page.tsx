@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,14 @@ const smallButton =
   "rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100";
 
 export default async function InventarioPage() {
+  const session = await getSession();
+  if (session?.role !== "ADMIN") {
+    return (
+      <div className="rounded-md border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-700">
+        Solo un administrador puede ver esta pantalla.
+      </div>
+    );
+  }
   const [products, rooms] = await Promise.all([
     prisma.product.findMany({
       orderBy: [{ category: "asc" }, { name: "asc" }],
