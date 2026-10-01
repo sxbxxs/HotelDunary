@@ -18,8 +18,10 @@ const links = [
 
 export default function Sidebar({
   userName,
+  isAdmin,
 }: {
   userName: string;
+  isAdmin: boolean;
 }) {
   const pathname = usePathname();
 
@@ -27,7 +29,7 @@ export default function Sidebar({
     <aside className="flex h-screen w-60 flex-col bg-slate-900 text-slate-100">
       <div className="px-6 py-5 text-lg font-semibold">Hotel Dunary</div>
       <nav className="flex flex-col gap-1 px-3">
-        {links.map((link) => {
+        {(isAdmin ? [...links, { href: "/usuarios", label: "Usuarios" }] : links).map((link) => {
           const active =
             link.href === "/"
               ? pathname === "/"

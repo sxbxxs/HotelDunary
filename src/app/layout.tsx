@@ -17,7 +17,9 @@ export default async function RootLayout({
   return (
     <html lang="es">
             <body className="flex bg-slate-50 text-slate-900">
-                <AppShell userName={session?.name ?? null}>{children}</AppShell>
+                        <AppShell userName={session?.name ?? null} isAdmin={session?.role === "ADMIN"}>
+          {children}
+        </AppShell>
       </body>
     </html>
   );
