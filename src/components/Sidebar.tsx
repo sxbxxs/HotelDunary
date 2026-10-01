@@ -15,6 +15,7 @@ const links = [
 ];
 
 const adminLinks = [
+  { href: "/finanzas", label: "Finanzas" },
   { href: "/habitaciones", label: "Habitaciones" },
   { href: "/inventario", label: "Inventario" },
   { href: "/usuarios", label: "Usuarios" },
