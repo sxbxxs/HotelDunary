@@ -11,6 +11,7 @@ async function createGuest(formData: FormData) {
   const lastName = String(formData.get("lastName") ?? "").trim();
   const documentType = String(formData.get("documentType") ?? "").trim();
   const documentNumber = String(formData.get("documentNumber") ?? "").trim();
+  const originCity = String(formData.get("originCity") ?? "").trim() || null;
   const nationality = String(formData.get("nationality") ?? "").trim() || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const email = String(formData.get("email") ?? "").trim() || null;
@@ -37,6 +38,7 @@ async function createGuest(formData: FormData) {
       lastName,
       documentType,
       documentNumber,
+      originCity,
       nationality,
       phone,
       email,
@@ -103,6 +105,7 @@ export default async function HuespedesPage({
             <option value="OTRO">Otro</option>
           </select>
           <input name="documentNumber" placeholder="Número de documento" required className={input} />
+          <input name="originCity" placeholder="Lugar de procedencia" className={input} />
           <input name="nationality" placeholder="Nacionalidad" className={input} />
           <input name="phone" placeholder="Teléfono" className={input} />
           <input name="email" type="email" placeholder="Correo" className={input} />

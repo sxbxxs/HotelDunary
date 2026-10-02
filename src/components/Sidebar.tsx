@@ -5,15 +5,20 @@ import { usePathname } from "next/navigation";
 import { logout } from "@/app/login/actions";
 
 const links = [
-  { href: "/hoy", label: "Hoy" },
-  { href: "/tablero", label: "Tablero" },
   { href: "/", label: "Calendario" },
+  { href: "/tablero", label: "Tablero" },
   { href: "/reservas", label: "Reservas" },
   { href: "/huespedes", label: "Huéspedes" },
-  { href: "/habitaciones", label: "Habitaciones" },
   { href: "/pagos", label: "Caja y pagos" },
-  { href: "/inventario", label: "Inventario" },
+  { href: "/egresos", label: "Egresos" },
   { href: "/respaldo", label: "Copias de seguridad" },
+];
+
+const adminLinks = [
+  { href: "/finanzas", label: "Finanzas" },
+  { href: "/habitaciones", label: "Habitaciones" },
+  { href: "/inventario", label: "Inventario" },
+  { href: "/usuarios", label: "Usuarios" },
 ];
 
 export default function Sidebar({
@@ -29,7 +34,7 @@ export default function Sidebar({
     <aside className="flex h-screen w-60 flex-col bg-slate-900 text-slate-100">
       <div className="px-6 py-5 text-lg font-semibold">Hotel Dunary</div>
       <nav className="flex flex-col gap-1 px-3">
-        {(isAdmin ? [...links, { href: "/usuarios", label: "Usuarios" }] : links).map((link) => {
+                {(isAdmin ? [...links, ...adminLinks] : links).map((link) => {
           const active =
             link.href === "/"
               ? pathname === "/"

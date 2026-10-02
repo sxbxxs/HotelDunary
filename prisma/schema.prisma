@@ -62,6 +62,7 @@ model Guest {
   lastName       String
   documentType   String // CC, CE, PASAPORTE...
   documentNumber String
+  originCity     String?
   nationality    String?
   phone          String?
   email          String?
@@ -187,3 +188,13 @@ model User {
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 }
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  concept     String
+  amount      Int
+  spentAt     DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
