@@ -11,6 +11,7 @@ const links = [
   { href: "/huespedes", label: "Huéspedes" },
   { href: "/pagos", label: "Caja y pagos" },
   { href: "/egresos", label: "Egresos" },
+  { href: "/caja-diaria", label: "Cierre de caja" },
   { href: "/respaldo", label: "Copias de seguridad" },
 ];
 
