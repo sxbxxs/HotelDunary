@@ -37,6 +37,24 @@ async function createUser(formData: FormData) {
   redirect("/usuarios?ok=1");
 }
 
+async function resetPassword(formData: FormData) {
+  "use server";
+  const session = await getSession();
+  if (session?.role !== "ADMIN") return;
+
+  const id = Number(formData.get("id"));
+  const newPassword = String(formData.get("newPassword") ?? "");
+  if (!id || newPassword.length < 6) {
+    redirect("/usuarios?error=" + encodeURIComponent("La nueva clave debe tener al menos 6 caracteres."));
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({ where: { id }, data: { passwordHash } });
+
+  revalidatePath("/usuarios");
+  redirect("/usuarios?ok=2");
+}
+
 async function toggleActive(formData: FormData) {
   "use server";
   const session = await getSession();
@@ -86,9 +104,14 @@ export default async function UsuariosPage({
           {error}
         </div>
       )}
-      {ok && (
+            {ok === "1" && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           Usuario creado.
+        </div>
+      )}
+      {ok === "2" && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Clave actualizada.
         </div>
       )}
 
@@ -136,15 +159,26 @@ export default async function UsuariosPage({
                       {u.active ? "Activo" : "Desactivado"}
                     </span>
                   </td>
-                  <td className="px-4 py-2">
-                    {u.id !== session.userId && (
-                      <form action={toggleActive}>
+                                    <td className="px-4 py-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {u.id !== session.userId && (
+                        <form action={toggleActive}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button className={smallButton}>
+                            {u.active ? "Desactivar" : "Activar"}
+                          </button>
+                        </form>
+                      )}
+                      <form action={resetPassword} className="flex gap-1">
                         <input type="hidden" name="id" value={u.id} />
-                        <button className={smallButton}>
-                          {u.active ? "Desactivar" : "Activar"}
-                        </button>
+                        <input
+                          name="newPassword"
+                          placeholder="Clave nueva"
+                          className="w-24 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                        />
+                        <button className={smallButton}>Resetear clave</button>
                       </form>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}

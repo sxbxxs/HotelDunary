@@ -54,8 +54,14 @@ export default function Sidebar({
           );
         })}
             </nav>
-      <div className="mt-auto border-t border-slate-800 px-3 py-4">
+            <div className="mt-auto border-t border-slate-800 px-3 py-4">
         <div className="mb-2 px-3 text-sm text-slate-300">{userName}</div>
+        <Link
+          href="/perfil"
+          className="block rounded-md px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+        >
+          Mi perfil
+        </Link>
         <form action={logout}>
           <button className="w-full rounded-md px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800">
             Cerrar sesión
