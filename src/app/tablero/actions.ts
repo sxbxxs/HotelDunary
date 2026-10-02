@@ -1,5 +1,7 @@
 "use server";
 
+import type { Guest } from "@/generated/prisma/client";
+export type { Guest };
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -12,14 +14,13 @@ function revalidateAll() {
   revalidatePath("/");
 }
 
-export async function quickReserve(formData: FormData) {
+export async function occupyNow(formData: FormData) {
   const roomId = Number(formData.get("roomId"));
-  const name = String(formData.get("guestName") ?? "").trim();
-  const document = String(formData.get("guestDocument") ?? "").trim();
+  const guestId = Number(formData.get("guestId"));
   const nights = Number(formData.get("nights")) || 1;
 
-  if (!roomId || !name || !document || nights < 1) {
-    redirect("/tablero?error=" + encodeURIComponent("Faltan datos para reservar."));
+  if (!roomId || !guestId || nights < 1) {
+    redirect("/tablero?error=" + encodeURIComponent("Faltan datos para ocupar la habitación."));
   }
 
   const error = await prisma.$transaction(async (tx) => {
@@ -43,20 +44,163 @@ export async function quickReserve(formData: FormData) {
     });
     if (conflict) return "Esa habitación ya tiene una reserva que se cruza con hoy.";
 
-    // Busca al huésped por nombre completo + documento; si no existe, lo crea con datos mínimos
-    const [firstName, ...rest] = name.split(" ");
-    const lastName = rest.join(" ") || firstName;
+    const guest = await tx.guest.findUnique({ where: { id: guestId } });
+    if (!guest) return "El huésped no existe.";
+
+    await tx.reservation.create({
+      data: {
+        roomId,
+        guestId,
+        checkIn,
+        checkOut,
+        status: "CHECKED_IN",
+        nightlyRate: room.roomType.nightlyRate,
+      },
+    });
+    return null;
+  });
+
+  if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+  revalidateAll();
+  redirect("/tablero?ok=1");
+}
+
+export async function reserveForLater(formData: FormData) {
+  const roomId = Number(formData.get("roomId"));
+  const guestId = Number(formData.get("guestId"));
+  const checkInRaw = String(formData.get("checkIn") ?? "");
+  const checkOutRaw = String(formData.get("checkOut") ?? "");
+  const adults = Number(formData.get("adults")) || 1;
+  const children = Number(formData.get("children")) || 0;
+
+  const checkIn = /^\d{4}-\d{2}-\d{2}$/.test(checkInRaw)
+    ? new Date(`${checkInRaw}T00:00:00.000Z`)
+    : null;
+  const checkOut = /^\d{4}-\d{2}-\d{2}$/.test(checkOutRaw)
+    ? new Date(`${checkOutRaw}T00:00:00.000Z`)
+    : null;
+
+  if (!roomId || !guestId || !checkIn || !checkOut) {
+    redirect("/tablero?error=" + encodeURIComponent("Faltan datos para reservar."));
+  }
+  if (checkOut <= checkIn) {
+    redirect("/tablero?error=" + encodeURIComponent("La salida debe ser después de la entrada."));
+  }
+
+  const error = await prisma.$transaction(async (tx) => {
+    const room = await tx.room.findUnique({
+      where: { id: roomId },
+      include: { roomType: true },
+    });
+    if (!room || !room.active) return "La habitación no está disponible.";
+
+    const conflict = await tx.reservation.findFirst({
+      where: {
+        roomId,
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        checkIn: { lt: checkOut },
+        checkOut: { gt: checkIn },
+      },
+    });
+    if (conflict) return "Esa habitación ya tiene una reserva que se cruza con esas fechas.";
+
+    const guest = await tx.guest.findUnique({ where: { id: guestId } });
+    if (!guest) return "El huésped no existe.";
+
+    await tx.reservation.create({
+      data: {
+        roomId,
+        guestId,
+        checkIn,
+        checkOut,
+        adults,
+        children,
+        status: "CONFIRMED",
+        nightlyRate: room.roomType.nightlyRate,
+      },
+    });
+    return null;
+  });
+
+  if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+  revalidateAll();
+  redirect("/tablero?ok=1");
+}
+
+export async function quickReserve(formData: FormData) {
+  const roomId = Number(formData.get("roomId"));
+  const guestName = String(formData.get("guestName") ?? "").trim();
+  const guestDocument = String(formData.get("guestDocument") ?? "").trim();
+  const nights = Number(formData.get("nights")) || 1;
+
+  if (!roomId || !guestName || !guestDocument || nights < 1) {
+    redirect(
+      "/tablero?error=" +
+        encodeURIComponent("Faltan datos para hacer la reserva.")
+    );
+  }
+
+  const error = await prisma.$transaction(async (tx) => {
+    const room = await tx.room.findUnique({
+      where: { id: roomId },
+      include: { roomType: true },
+    });
+
+    if (!room || !room.active) {
+      return "La habitación no está disponible.";
+    }
+
+    if (room.status !== "CLEAN") {
+      return "La habitación no está limpia y disponible.";
+    }
+
+    const now = new Date();
+
+    const checkIn = new Date(
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+    );
+
+    const checkOut = new Date(
+      checkIn.getTime() + nights * 24 * 60 * 60 * 1000
+    );
+
+    const conflict = await tx.reservation.findFirst({
+      where: {
+        roomId,
+        status: {
+          notIn: ["CANCELLED", "NO_SHOW"],
+        },
+        checkIn: {
+          lt: checkOut,
+        },
+        checkOut: {
+          gt: checkIn,
+        },
+      },
+    });
+
+    if (conflict) {
+      return "Esa habitación ya tiene una reserva que se cruza con hoy.";
+    }
 
     let guest = await tx.guest.findFirst({
-      where: { documentNumber: document },
+      where: {
+        documentNumber: guestDocument,
+      },
     });
+
     if (!guest) {
+      const nameParts = guestName.split(/\s+/);
+
+      const firstName = nameParts.shift() ?? "";
+      const lastName = nameParts.join(" ") || firstName;
+
       guest = await tx.guest.create({
         data: {
           firstName,
           lastName,
           documentType: "CC",
-          documentNumber: document,
+          documentNumber: guestDocument,
         },
       });
     }
@@ -71,11 +215,19 @@ export async function quickReserve(formData: FormData) {
         nightlyRate: room.roomType.nightlyRate,
       },
     });
+
     return null;
   });
 
-  if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+  if (error) {
+    redirect(
+      "/tablero?error=" +
+        encodeURIComponent(error)
+    );
+  }
+
   revalidateAll();
+
   redirect("/tablero?ok=1");
 }
 
@@ -232,4 +384,34 @@ export async function sellFromDesk(formData: FormData) {
   revalidatePath("/tablero");
   revalidatePath("/inventario");
   redirect("/tablero?ok=1");
+}
+
+export async function findGuestByDocument(documentNumber: string) {
+  const doc = documentNumber.trim();
+  if (!doc) return null;
+  return prisma.guest.findFirst({ where: { documentNumber: doc } });
+}
+
+export async function createGuestInline(data: {
+  firstName: string;
+  lastName: string;
+  documentType: string;
+  documentNumber: string;
+}) {
+  const firstName = data.firstName.trim();
+  const lastName = data.lastName.trim();
+  const documentType = data.documentType.trim();
+  const documentNumber = data.documentNumber.trim();
+
+  if (!firstName || !lastName || !documentType || !documentNumber) {
+    return { error: "Faltan datos del huésped." as const };
+  }
+
+  const exists = await prisma.guest.findFirst({ where: { documentNumber } });
+  if (exists) return { guest: exists };
+
+  const guest = await prisma.guest.create({
+    data: { firstName, lastName, documentType, documentNumber },
+  });
+  return { guest };
 }
