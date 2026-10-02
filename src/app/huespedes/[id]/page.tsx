@@ -226,12 +226,15 @@ export default async function EditarHuespedPage({
                       })}
                     </td>
                     <td className="px-4 py-2">{r.room.number}</td>
-                    <td className="px-4 py-2">
+                                        <td className="px-4 py-2">
                       <span className={`rounded-full px-2 py-1 text-xs ${st.className}`}>
                         {st.text}
                       </span>
+                      {r.status === "CANCELLED" && r.cancelReason && (
+                        <div className="mt-1 text-xs text-slate-500">{r.cancelReason}</div>
+                      )}
                     </td>
-                      <td className="px-4 py-2">
+                    <td className="px-4 py-2">
                       {r.status === "CANCELLED" || r.status === "NO_SHOW" ? (
                         <span className="text-slate-400">—</span>
                       ) : balance > 0 ? (

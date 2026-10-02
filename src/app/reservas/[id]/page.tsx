@@ -172,6 +172,24 @@ async function updateReservation(formData: FormData) {
   redirect("/reservas?ok=1");
 }
 
+
+async function cancelReservation(formData: FormData) {
+  "use server";
+  const id = Number(formData.get("id"));
+  const cancelReason = String(formData.get("cancelReason") ?? "").trim() || null;
+  if (!id) return;
+
+  await prisma.reservation.update({
+    where: { id },
+    data: { status: "CANCELLED", cancelReason },
+  });
+
+  revalidatePath("/reservas");
+  revalidatePath("/pagos");
+  revalidatePath("/");
+  redirect("/reservas?ok=1");
+}
+
 const input =
   "mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
 const label = "text-xs text-slate-500";
@@ -372,11 +390,31 @@ export default async function EditarReservaPage({
             />
           </label>
 
-          <div className="sm:col-span-2">
+                    <div className="sm:col-span-2">
             <button className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700">
               Guardar cambios
             </button>
           </div>
+        </form>
+      )}
+
+      {editable && (
+        <form
+          action={cancelReservation}
+          className="flex flex-wrap items-end gap-3 rounded-md border border-red-200 bg-red-50 p-4"
+        >
+          <input type="hidden" name="id" value={reservation.id} />
+          <label className="text-xs text-red-700">
+            Cancelar esta reserva, motivo:
+            <input
+              name="cancelReason"
+              placeholder="Ej. El cliente no llegó"
+              className="mt-1 block w-64 rounded-md border border-red-300 bg-white px-3 py-2 text-sm"
+            />
+          </label>
+          <button className="rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">
+            Cancelar reserva
+          </button>
         </form>
       )}
     </div>

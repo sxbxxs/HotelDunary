@@ -83,6 +83,7 @@ model Reservation {
   adults     Int                @default(1)
   children   Int                @default(0)
   notes      String?
+  cancelReason   String?
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
   roomId     Int
