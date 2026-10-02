@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { reservationBalance } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,33 @@ export default async function EditarHuespedPage({
 
   const guest = await prisma.guest.findUnique({ where: { id: guestId } });
   if (!guest) notFound();
+  
+  const reservations = await prisma.reservation.findMany({
+    where: { guestId },
+    orderBy: { checkIn: "desc" },
+    include: { room: true, payments: true, consumptions: true },
+  });
+
+  const statusLabel: Record<string, { text: string; className: string }> = {
+    CONFIRMED: { text: "Reservada", className: "bg-sky-100 text-sky-800" },
+    CHECKED_IN: { text: "Hospedado", className: "bg-emerald-100 text-emerald-800" },
+    CHECKED_OUT: { text: "Salió", className: "bg-slate-200 text-slate-700" },
+    CANCELLED: { text: "Cancelada", className: "bg-red-100 text-red-800" },
+    NO_SHOW: { text: "No llegó", className: "bg-amber-100 text-amber-800" },
+  };
+
+  const cop = new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  });
+
+  const totalStays = reservations.filter((r) => r.status === "CHECKED_OUT").length;
+  const pendingDebt = reservations.reduce((sum, r) => {
+    if (r.status === "CANCELLED" || r.status === "NO_SHOW") return sum;
+    const b = reservationBalance(r);
+    return sum + (b > 0 ? b : 0);
+  }, 0);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -134,12 +162,91 @@ export default async function EditarHuespedPage({
           <textarea name="notes" defaultValue={guest.notes ?? ""} rows={3} className={input} />
         </label>
 
-        <div className="sm:col-span-2">
+                <div className="sm:col-span-2">
           <button className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700">
             Guardar cambios
           </button>
         </div>
       </form>
+
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-lg font-medium">Historial de estadías</h2>
+          <span className="text-sm text-slate-500">
+            {totalStays} estadía{totalStays !== 1 ? "s" : ""} completada
+            {totalStays !== 1 ? "s" : ""}
+            {pendingDebt > 0 && (
+              <>
+                {" "}
+                · Deuda pendiente:{" "}
+                <span className="font-medium text-red-600">{cop.format(pendingDebt)}</span>
+              </>
+            )}
+          </span>
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-100 text-left">
+              <tr>
+                <th className="px-4 py-2">Entrada</th>
+                <th className="px-4 py-2">Salida</th>
+                <th className="px-4 py-2">Habitación</th>
+                <th className="px-4 py-2">Estado</th>
+                <th className="px-4 py-2">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reservations.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-3 text-slate-500">
+                    Este huésped no tiene reservas todavía.
+                  </td>
+                </tr>
+              )}
+              {reservations.map((r) => {
+                const balance = reservationBalance(r);
+                const st = statusLabel[r.status];
+                return (
+                  <tr key={r.id} className="border-t border-slate-100">
+                    <td className="px-4 py-2">
+                      {r.checkIn.toLocaleDateString("es-CO", {
+                        timeZone: "UTC",
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td className="px-4 py-2">
+                      {r.checkOut.toLocaleDateString("es-CO", {
+                        timeZone: "UTC",
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td className="px-4 py-2">{r.room.number}</td>
+                    <td className="px-4 py-2">
+                      <span className={`rounded-full px-2 py-1 text-xs ${st.className}`}>
+                        {st.text}
+                      </span>
+                    </td>
+                      <td className="px-4 py-2">
+                      {r.status === "CANCELLED" || r.status === "NO_SHOW" ? (
+                        <span className="text-slate-400">—</span>
+                      ) : balance > 0 ? (
+                        <span className="font-medium text-red-600">{cop.format(balance)}</span>
+                      ) : (
+                        <span className="text-emerald-600">Al día</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
