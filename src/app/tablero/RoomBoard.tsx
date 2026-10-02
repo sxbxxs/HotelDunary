@@ -407,12 +407,15 @@ function FreeRoomPanel({ roomId }: { roomId: number }) {
     setSearching(false);
   }
 
-  async function handleCreateGuest(formData: FormData) {
+    async function handleCreateGuest(formData: FormData) {
     const result = await createGuestInline({
       firstName: String(formData.get("firstName") ?? ""),
       lastName: String(formData.get("lastName") ?? ""),
       documentType: String(formData.get("documentType") ?? "CC"),
       documentNumber: docNumber,
+      originCity: String(formData.get("originCity") ?? ""),
+      nationality: String(formData.get("nationality") ?? ""),
+      phone: String(formData.get("phone") ?? ""),
     });
     if (result.guest) setChosenGuest(result.guest);
   }
@@ -538,7 +541,7 @@ function FreeRoomPanel({ roomId }: { roomId: number }) {
         </div>
       )}
 
-      {searched && !foundGuest && showNewGuestForm && (
+            {searched && !foundGuest && showNewGuestForm && (
         <form action={handleCreateGuest} className="space-y-2 rounded-md border border-slate-200 p-3">
           <p className="text-sm text-slate-600">No existe. Regístralo:</p>
           <div className="flex flex-wrap gap-2">
@@ -551,6 +554,9 @@ function FreeRoomPanel({ roomId }: { roomId: number }) {
               <option value="TI">Tarjeta de identidad (TI)</option>
               <option value="OTRO">Otro</option>
             </select>
+            <input name="originCity" placeholder="Lugar de procedencia" className={input} />
+            <input name="nationality" placeholder="Nacionalidad" className={input} />
+            <input name="phone" placeholder="Teléfono" className={input} />
             <button className={button}>Registrar y continuar</button>
           </div>
         </form>

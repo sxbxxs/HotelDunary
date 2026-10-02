@@ -62,6 +62,7 @@ model Guest {
   lastName       String
   documentType   String // CC, CE, PASAPORTE...
   documentNumber String
+  originCity     String?
   nationality    String?
   phone          String?
   email          String?

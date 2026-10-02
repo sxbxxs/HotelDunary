@@ -397,11 +397,17 @@ export async function createGuestInline(data: {
   lastName: string;
   documentType: string;
   documentNumber: string;
+  originCity: string;
+  nationality: string;
+  phone: string;
 }) {
   const firstName = data.firstName.trim();
   const lastName = data.lastName.trim();
   const documentType = data.documentType.trim();
   const documentNumber = data.documentNumber.trim();
+  const originCity = data.originCity.trim() || null;
+  const nationality = data.nationality.trim() || null;
+  const phone = data.phone.trim() || null;
 
   if (!firstName || !lastName || !documentType || !documentNumber) {
     return { error: "Faltan datos del huésped." as const };
@@ -411,7 +417,7 @@ export async function createGuestInline(data: {
   if (exists) return { guest: exists };
 
   const guest = await prisma.guest.create({
-    data: { firstName, lastName, documentType, documentNumber },
+    data: { firstName, lastName, documentType, documentNumber, originCity, nationality, phone },
   });
   return { guest };
 }
