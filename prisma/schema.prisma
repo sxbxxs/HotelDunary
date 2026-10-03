@@ -83,6 +83,7 @@ model Reservation {
   adults     Int                @default(1)
   children   Int                @default(0)
   notes      String?
+  cancelReason   String?
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
   roomId     Int
@@ -198,3 +199,11 @@ model Expense {
   createdAt   DateTime @default(now())
 }
 
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  username  String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}

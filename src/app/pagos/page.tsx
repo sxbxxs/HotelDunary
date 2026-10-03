@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { logAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,17 @@ async function createPayment(formData: FormData) {
   });
 
   if (error) redirect("/pagos?error=" + encodeURIComponent(error));
+
+  const reservationInfo = await prisma.reservation.findUnique({
+    where: { id: reservationId },
+    include: { guest: true, room: true },
+  });
+  if (reservationInfo) {
+    await logAction(
+      "Registró pago",
+      `Hab. ${reservationInfo.room.number}, ${reservationInfo.guest.firstName} ${reservationInfo.guest.lastName} · ${amount.toLocaleString("es-CO")}`
+    );
+  }
 
   revalidatePath("/pagos");
   redirect("/pagos?ok=1");

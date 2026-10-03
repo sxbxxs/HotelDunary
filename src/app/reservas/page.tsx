@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { reservationTotal } from "@/lib/billing";
+import { logAction } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -88,11 +89,16 @@ async function setStatus(formData: FormData) {
   "use server";
   const id = Number(formData.get("id"));
   const status = String(formData.get("status"));
+  const cancelReason = String(formData.get("cancelReason") ?? "").trim() || null;
   if (!id || !["CHECKED_IN", "CHECKED_OUT", "CANCELLED"].includes(status)) return;
 
   const reservation = await prisma.reservation.update({
     where: { id },
-    data: { status: status as "CHECKED_IN" | "CHECKED_OUT" | "CANCELLED" },
+    data: {
+      status: status as "CHECKED_IN" | "CHECKED_OUT" | "CANCELLED",
+      ...(status === "CANCELLED" ? { cancelReason } : {}),
+    },
+    include: { guest: true, room: true },
   });
 
   // Al salir el huésped, la habitación queda pendiente de limpieza
@@ -102,6 +108,19 @@ async function setStatus(formData: FormData) {
       data: { status: "DIRTY" },
     });
   }
+
+  if (status === "CANCELLED") {
+    await logAction(
+      "Canceló reserva",
+      `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}` +
+        (cancelReason ? ` · Motivo: ${cancelReason}` : "")
+    );
+  } else if (status === "CHECKED_IN") {
+    await logAction("Check-in", `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}`);
+  } else if (status === "CHECKED_OUT") {
+    await logAction("Check-out", `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}`);
+  }
+
   revalidatePath("/reservas");
 }
 
@@ -268,9 +287,14 @@ export default async function ReservasPage({
                               <input type="hidden" name="status" value="CHECKED_IN" />
                               <button className={smallButton}>Check-in</button>
                             </form>
-                            <form action={setStatus}>
+                                                        <form action={setStatus} className="flex gap-1">
                               <input type="hidden" name="id" value={r.id} />
                               <input type="hidden" name="status" value="CANCELLED" />
+                              <input
+                                name="cancelReason"
+                                placeholder="Motivo"
+                                className="w-24 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                              />
                               <button className={smallButton}>Cancelar</button>
                             </form>
                           </>

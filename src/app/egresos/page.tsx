@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { logAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ async function createExpense(formData: FormData) {
     : new Date();
 
   await prisma.expense.create({ data: { concept, amount, notes, spentAt } });
+  await logAction("Registró egreso", `${concept} · ${amount.toLocaleString("es-CO")}`);
   revalidatePath("/egresos");
 }
 

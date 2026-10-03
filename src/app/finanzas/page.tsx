@@ -20,20 +20,38 @@ const rangeLabel: Record<RangeKey, string> = {
   year: "Este año",
 };
 
-function rangeStart(key: RangeKey, now: Date) {
-  const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d));
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const d = now.getDate();
+const BOGOTA_OFFSET_MS = 5 * 60 * 60 * 1000;
 
-  if (key === "day") return utc(y, m, d);
+function bogotaNow() {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  });
+  const parts = fmt.formatToParts(new Date());
+  const y = Number(parts.find((p) => p.type === "year")!.value);
+  const m = Number(parts.find((p) => p.type === "month")!.value) - 1;
+  const d = Number(parts.find((p) => p.type === "day")!.value);
+  const weekdayStr = parts.find((p) => p.type === "weekday")!.value;
+  const weekdayMap: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+  const weekday = weekdayMap[weekdayStr.toLowerCase()] ?? 0;
+  return { y, m, d, weekday };
+}
+
+function rangeStart(key: RangeKey) {
+  const { y, m, d, weekday } = bogotaNow();
+  const bogota = (yy: number, mm: number, dd: number) =>
+    new Date(Date.UTC(yy, mm, dd) + BOGOTA_OFFSET_MS);
+
+  if (key === "day") return bogota(y, m, d);
   if (key === "week") {
-    const day = now.getDay();
-    const diff = day === 0 ? 6 : day - 1;
-    return utc(y, m, d - diff);
+    const diff = weekday === 0 ? 6 : weekday - 1;
+    return bogota(y, m, d - diff);
   }
-  if (key === "month") return utc(y, m, 1);
-  return utc(y, 0, 1);
+  if (key === "month") return bogota(y, m, 1);
+  return bogota(y, 0, 1);
 }
 
 export default async function FinanzasPage({
@@ -58,15 +76,23 @@ export default async function FinanzasPage({
     : "day";
 
   const now = new Date();
-  const start = rangeStart(key, now);
-  const realEnd =
+  const start = rangeStart(key);
+    const realEnd =
     key === "day"
       ? new Date(start.getTime() + DAY_MS)
       : key === "week"
       ? new Date(start.getTime() + 7 * DAY_MS)
       : key === "month"
-      ? new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1))
-      : new Date(Date.UTC(now.getFullYear() + 1, 0, 1));
+      ? (() => {
+          const { y, m } = bogotaNow();
+          const nextMonth = m === 11 ? 0 : m + 1;
+          const nextYear = m === 11 ? y + 1 : y;
+          return new Date(Date.UTC(nextYear, nextMonth, 1) + BOGOTA_OFFSET_MS);
+        })()
+      : (() => {
+          const { y } = bogotaNow();
+          return new Date(Date.UTC(y + 1, 0, 1) + BOGOTA_OFFSET_MS);
+        })();
 
   const [payments, sales, expenses] = await Promise.all([
     prisma.payment.findMany({

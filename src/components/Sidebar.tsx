@@ -11,6 +11,7 @@ const links = [
   { href: "/huespedes", label: "Huéspedes" },
   { href: "/pagos", label: "Caja y pagos" },
   { href: "/egresos", label: "Egresos" },
+  { href: "/caja-diaria", label: "Cierre de caja" },
   { href: "/respaldo", label: "Copias de seguridad" },
 ];
 
@@ -19,6 +20,7 @@ const adminLinks = [
   { href: "/habitaciones", label: "Habitaciones" },
   { href: "/inventario", label: "Inventario" },
   { href: "/usuarios", label: "Usuarios" },
+  { href: "/auditoria", label: "Auditoría" },
 ];
 
 export default function Sidebar({
@@ -54,8 +56,14 @@ export default function Sidebar({
           );
         })}
             </nav>
-      <div className="mt-auto border-t border-slate-800 px-3 py-4">
+            <div className="mt-auto border-t border-slate-800 px-3 py-4">
         <div className="mb-2 px-3 text-sm text-slate-300">{userName}</div>
+        <Link
+          href="/perfil"
+          className="block rounded-md px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+        >
+          Mi perfil
+        </Link>
         <form action={logout}>
           <button className="w-full rounded-md px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800">
             Cerrar sesión
