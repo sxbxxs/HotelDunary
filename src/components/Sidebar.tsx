@@ -20,6 +20,7 @@ const adminLinks = [
   { href: "/habitaciones", label: "Habitaciones" },
   { href: "/inventario", label: "Inventario" },
   { href: "/usuarios", label: "Usuarios" },
+  { href: "/auditoria", label: "Auditoría" },
 ];
 
 export default function Sidebar({

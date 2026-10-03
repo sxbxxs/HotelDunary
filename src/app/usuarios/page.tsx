@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { logAction } from "@/lib/audit";
 import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,8 @@ async function createUser(formData: FormData) {
     data: { username, passwordHash, name, role: role as "ADMIN" | "RECEPCION" },
   });
 
+  await logAction("Creó usuario", `${name} (${username}), rol: ${role}`);
+
   revalidatePath("/usuarios");
   redirect("/usuarios?ok=1");
 }
@@ -49,7 +52,9 @@ async function resetPassword(formData: FormData) {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await prisma.user.update({ where: { id }, data: { passwordHash } });
+  const targetUser = await prisma.user.update({ where: { id }, data: { passwordHash } });
+
+  await logAction("Reseteó clave", `Usuario: ${targetUser.username}`);
 
   revalidatePath("/usuarios");
   redirect("/usuarios?ok=2");
@@ -67,6 +72,12 @@ async function toggleActive(formData: FormData) {
   if (!user) return;
 
   await prisma.user.update({ where: { id }, data: { active: !user.active } });
+
+  await logAction(
+    user.active ? "Desactivó usuario" : "Activó usuario",
+    `Usuario: ${user.username}`
+  );
+
   revalidatePath("/usuarios");
 }
 

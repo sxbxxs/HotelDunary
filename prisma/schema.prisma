@@ -199,3 +199,11 @@ model Expense {
   createdAt   DateTime @default(now())
 }
 
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  username  String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}

@@ -2,6 +2,7 @@
 
 import type { Guest } from "@/generated/prisma/client";
 export type { Guest };
+import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -23,12 +24,15 @@ export async function occupyNow(formData: FormData) {
     redirect("/tablero?error=" + encodeURIComponent("Faltan datos para ocupar la habitación."));
   }
 
+  let roomNumber = "";
+
   const error = await prisma.$transaction(async (tx) => {
     const room = await tx.room.findUnique({
       where: { id: roomId },
       include: { roomType: true },
     });
     if (!room || !room.active) return "La habitación no está disponible.";
+    roomNumber = room.number;
 
     const now = new Date();
     const checkIn = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
@@ -61,6 +65,8 @@ export async function occupyNow(formData: FormData) {
   });
 
   if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+
+  await logAction("Ocupó habitación (tablero)", `Hab. ${roomNumber}`);
   revalidateAll();
   redirect("/tablero?ok=1");
 }
@@ -87,12 +93,15 @@ export async function reserveForLater(formData: FormData) {
     redirect("/tablero?error=" + encodeURIComponent("La salida debe ser después de la entrada."));
   }
 
+  let roomNumber = "";
+
   const error = await prisma.$transaction(async (tx) => {
     const room = await tx.room.findUnique({
       where: { id: roomId },
       include: { roomType: true },
     });
     if (!room || !room.active) return "La habitación no está disponible.";
+    roomNumber = room.number;
 
     const conflict = await tx.reservation.findFirst({
       where: {
@@ -123,6 +132,8 @@ export async function reserveForLater(formData: FormData) {
   });
 
   if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+
+  await logAction("Reservó para otra fecha (tablero)", `Hab. ${roomNumber}`);
   revalidateAll();
   redirect("/tablero?ok=1");
 }
@@ -234,10 +245,15 @@ export async function quickReserve(formData: FormData) {
 export async function checkInReservation(formData: FormData) {
   const reservationId = Number(formData.get("reservationId"));
   if (!reservationId) return;
-  await prisma.reservation.update({
+  const reservation = await prisma.reservation.update({
     where: { id: reservationId },
     data: { status: "CHECKED_IN" },
+    include: { room: true, guest: true },
   });
+  await logAction(
+    "Check-in (tablero)",
+    `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}`
+  );
   revalidateAll();
 }
 
@@ -248,18 +264,24 @@ export async function checkOutReservation(formData: FormData) {
   const reservation = await prisma.reservation.update({
     where: { id: reservationId },
     data: { status: "CHECKED_OUT" },
+    include: { room: true, guest: true },
   });
   await prisma.room.update({
     where: { id: reservation.roomId },
     data: { status: "DIRTY" },
   });
+  await logAction(
+    "Check-out (tablero)",
+    `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}`
+  );
   revalidateAll();
 }
 
 export async function markRoomClean(formData: FormData) {
   const roomId = Number(formData.get("roomId"));
   if (!roomId) return;
-  await prisma.room.update({ where: { id: roomId }, data: { status: "CLEAN" } });
+  const room = await prisma.room.update({ where: { id: roomId }, data: { status: "CLEAN" } });
+  await logAction("Marcó habitación como limpia", `Hab. ${room.number}`);
   revalidateAll();
 }
 
@@ -272,9 +294,16 @@ export async function addConsumptionFromBoard(formData: FormData) {
     redirect("/tablero?error=" + encodeURIComponent("Elige un producto y una cantidad válida."));
   }
 
+  let productName = "";
+  let roomNumber = "";
+
   const error = await prisma.$transaction(async (tx) => {
-    const reservation = await tx.reservation.findUnique({ where: { id: reservationId } });
+    const reservation = await tx.reservation.findUnique({
+      where: { id: reservationId },
+      include: { room: true },
+    });
     if (!reservation) return "La reserva no existe.";
+    roomNumber = reservation.room.number;
     if (reservation.status !== "CHECKED_IN") {
       return "Solo se puede registrar consumo mientras el huésped está hospedado.";
     }
@@ -284,6 +313,7 @@ export async function addConsumptionFromBoard(formData: FormData) {
       include: { product: true },
     });
     if (!stock) return "Ese producto no está en la canasta de esta habitación.";
+    productName = stock.product.name;
     if (stock.quantity < quantity) {
       return `Solo quedan ${stock.quantity} unidades de ${stock.product.name} en esta habitación.`;
     }
@@ -300,6 +330,8 @@ export async function addConsumptionFromBoard(formData: FormData) {
   });
 
   if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+
+  await logAction("Registró consumo de minibar (tablero)", `Hab. ${roomNumber}, ${productName} x${quantity}`);
   revalidateAll();
   revalidatePath("/inventario");
   redirect("/tablero?ok=1");
@@ -314,12 +346,17 @@ export async function registerPaymentFromBoard(formData: FormData) {
     redirect("/tablero?error=" + encodeURIComponent("Ingresa un valor válido."));
   }
 
+  let roomNumber = "";
+  let guestName = "";
+
   const error = await prisma.$transaction(async (tx) => {
     const reservation = await tx.reservation.findUnique({
       where: { id: reservationId },
-      include: { payments: true, consumptions: true },
+      include: { payments: true, consumptions: true, room: true, guest: true },
     });
     if (!reservation) return "La reserva no existe.";
+    roomNumber = reservation.room.number;
+    guestName = `${reservation.guest.firstName} ${reservation.guest.lastName}`;
 
     const nights = Math.round(
       (reservation.checkOut.getTime() - reservation.checkIn.getTime()) / (24 * 60 * 60 * 1000)
@@ -341,6 +378,8 @@ export async function registerPaymentFromBoard(formData: FormData) {
   });
 
   if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+
+  await logAction("Registró pago (tablero)", `Hab. ${roomNumber}, ${guestName} · ${amount.toLocaleString("es-CO")}`);
   revalidateAll();
   redirect("/tablero?ok=1");
 }
@@ -354,12 +393,15 @@ export async function sellFromDesk(formData: FormData) {
     redirect("/tablero?error=" + encodeURIComponent("Elige un producto y una cantidad válida."));
   }
 
+  let productName = "";
+
   const error = await prisma.$transaction(async (tx) => {
     const stock = await tx.frontDeskStock.findUnique({
       where: { productId },
       include: { product: true },
     });
     if (!stock) return "Ese producto no existe en la exhibidora.";
+    productName = stock.product.name;
     if (stock.quantity < quantity) {
       return `Solo quedan ${stock.quantity} unidades de ${stock.product.name}.`;
     }
@@ -381,6 +423,8 @@ export async function sellFromDesk(formData: FormData) {
   });
 
   if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+
+  await logAction("Vendió en exhibidora (tablero)", `${productName} x${quantity}`);
   revalidatePath("/tablero");
   revalidatePath("/inventario");
   redirect("/tablero?ok=1");

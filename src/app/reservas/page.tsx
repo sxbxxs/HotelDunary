@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { reservationTotal } from "@/lib/billing";
+import { logAction } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -97,6 +98,7 @@ async function setStatus(formData: FormData) {
       status: status as "CHECKED_IN" | "CHECKED_OUT" | "CANCELLED",
       ...(status === "CANCELLED" ? { cancelReason } : {}),
     },
+    include: { guest: true, room: true },
   });
 
   // Al salir el huésped, la habitación queda pendiente de limpieza
@@ -106,6 +108,19 @@ async function setStatus(formData: FormData) {
       data: { status: "DIRTY" },
     });
   }
+
+  if (status === "CANCELLED") {
+    await logAction(
+      "Canceló reserva",
+      `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}` +
+        (cancelReason ? ` · Motivo: ${cancelReason}` : "")
+    );
+  } else if (status === "CHECKED_IN") {
+    await logAction("Check-in", `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}`);
+  } else if (status === "CHECKED_OUT") {
+    await logAction("Check-out", `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}`);
+  }
+
   revalidatePath("/reservas");
 }
 

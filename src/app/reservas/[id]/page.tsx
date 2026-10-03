@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { reservationBalance, reservationTotal, nightsOf } from "@/lib/billing";
+import { logAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -179,10 +180,17 @@ async function cancelReservation(formData: FormData) {
   const cancelReason = String(formData.get("cancelReason") ?? "").trim() || null;
   if (!id) return;
 
-  await prisma.reservation.update({
+  const reservation = await prisma.reservation.update({
     where: { id },
     data: { status: "CANCELLED", cancelReason },
+    include: { guest: true, room: true },
   });
+
+  await logAction(
+    "Canceló reserva",
+    `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}` +
+      (cancelReason ? ` · Motivo: ${cancelReason}` : "")
+  );
 
   revalidatePath("/reservas");
   revalidatePath("/pagos");
