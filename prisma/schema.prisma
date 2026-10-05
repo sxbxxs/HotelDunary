@@ -220,3 +220,18 @@ model HotelSettings {
   accentColor   String   @default("#0ea5e9")
   updatedAt     DateTime @updatedAt
 }
+
+model Shift {
+  id            Int       @id @default(autoincrement())
+  openedById    Int?
+  openedByName  String
+  startingCash  Int
+  openedAt      DateTime  @default(now())
+  closedById    Int?
+  closedByName  String?
+  countedCash   Int?
+  expectedCash  Int?
+  difference    Int?
+  notes         String?
+  closedAt      DateTime?
+}
