@@ -207,3 +207,16 @@ model AuditLog {
   details   String?
   createdAt DateTime @default(now())
 }
+
+model HotelSettings {
+  id            Int      @id @default(1)
+  hotelName     String   @default("Mi Hotel")
+  nit           String?
+  address       String?
+  phone         String?
+  logoPath      String?
+  introVideoPath String?
+  primaryColor  String   @default("#0f172a")
+  accentColor   String   @default("#0ea5e9")
+  updatedAt     DateTime @updatedAt
+}

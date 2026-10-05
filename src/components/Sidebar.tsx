@@ -21,20 +21,23 @@ const adminLinks = [
   { href: "/inventario", label: "Inventario" },
   { href: "/usuarios", label: "Usuarios" },
   { href: "/auditoria", label: "Auditoría" },
+  { href: "/configuracion", label: "Configuración" },
 ];
 
 export default function Sidebar({
   userName,
   isAdmin,
+  hotelName,
 }: {
   userName: string;
   isAdmin: boolean;
+  hotelName: string;
 }) {
   const pathname = usePathname();
 
   return (
     <aside className="flex h-screen w-60 flex-col bg-slate-900 text-slate-100">
-      <div className="px-6 py-5 text-lg font-semibold">Hotel Dunary</div>
+      <div className="px-6 py-5 text-lg font-semibold">{hotelName}</div>
       <nav className="flex flex-col gap-1 px-3">
                 {(isAdmin ? [...links, ...adminLinks] : links).map((link) => {
           const active =
