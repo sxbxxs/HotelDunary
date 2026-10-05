@@ -17,12 +17,13 @@ export default async function RootLayout({
   const session = await getSession();
   const settings = await getHotelSettings();
   return (
-    <html lang="es">
+    <html lang="es" style={{ "--color-primary": settings.primaryColor, "--color-accent": settings.accentColor } as React.CSSProperties}>
             <body className="flex bg-slate-50 text-slate-900">
-                        <AppShell
+        <AppShell
           userName={session?.name ?? null}
           isAdmin={session?.role === "ADMIN"}
           hotelName={settings.hotelName}
+          logoPath={settings.logoPath}
         >
           {children}
         </AppShell>

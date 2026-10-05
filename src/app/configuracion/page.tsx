@@ -41,15 +41,9 @@ async function updateSettings(formData: FormData) {
     logoPath = await saveFile(logoFile, "logo");
   }
 
-  let introVideoPath = current.introVideoPath;
-  const videoFile = formData.get("introVideo") as File | null;
-  if (videoFile && videoFile.size > 0) {
-    introVideoPath = await saveFile(videoFile, "intro");
-  }
-
   await prisma.hotelSettings.update({
     where: { id: 1 },
-    data: { hotelName, nit, address, phone, primaryColor, accentColor, logoPath, introVideoPath },
+    data: { hotelName, nit, address, phone, primaryColor, accentColor, logoPath },
   });
 
   await logAction("Actualizó configuración del hotel");
@@ -136,13 +130,7 @@ export default async function ConfiguracionPage({
           <input name="logo" type="file" accept="image/*" className={input} />
         </label>
 
-        <label className="block text-xs text-slate-500">
-          Video de intro (se muestra antes del login)
-          {settings.introVideoPath && (
-            <p className="my-1 text-slate-600">Ya hay un video cargado.</p>
-          )}
-          <input name="introVideo" type="file" accept="video/*" className={input} />
-        </label>
+
 
         <button className={button}>Guardar configuración</button>
       </form>

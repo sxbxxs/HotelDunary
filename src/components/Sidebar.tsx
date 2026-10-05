@@ -28,16 +28,24 @@ export default function Sidebar({
   userName,
   isAdmin,
   hotelName,
+  logoPath,
 }: {
   userName: string;
   isAdmin: boolean;
   hotelName: string;
+  logoPath: string | null;
 }) {
   const pathname = usePathname();
 
   return (
     <aside className="flex h-screen w-60 flex-col bg-slate-900 text-slate-100">
-      <div className="px-6 py-5 text-lg font-semibold">{hotelName}</div>
+      <div className="flex items-center gap-3 px-6 py-5">
+        {logoPath && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoPath} alt={hotelName} className="h-8 w-8 rounded object-cover" />
+        )}
+        <span className="text-lg font-semibold">{hotelName}</span>
+      </div>
       <nav className="flex flex-col gap-1 px-3">
                 {(isAdmin ? [...links, ...adminLinks] : links).map((link) => {
           const active =
