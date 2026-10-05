@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createSession, getSession } from "@/lib/session";
+import { getHotelSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -47,11 +48,12 @@ export default async function LoginPage({
   if (session) redirect("/");
 
   const { error } = await searchParams;
+  const settings = await getHotelSettings();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6">
-        <h1 className="mb-1 text-xl font-semibold">Hotel Dunary</h1>
+    <div className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4">
+      <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+        <h1 className="mb-1 text-xl font-semibold">{settings.hotelName}</h1>
         <p className="mb-6 text-sm text-slate-500">Inicia sesión para continuar</p>
 
         {error && (
