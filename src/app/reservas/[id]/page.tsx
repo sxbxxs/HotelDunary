@@ -135,7 +135,7 @@ async function updateReservation(formData: FormData) {
       where: {
         id: { not: id },
         roomId,
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        status: { notIn: ["CANCELLED", "NO_SHOW", "CHECKED_OUT"] },
         checkIn: { lt: checkOut },
         checkOut: { gt: checkIn },
       },

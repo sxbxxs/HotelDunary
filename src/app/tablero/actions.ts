@@ -41,7 +41,7 @@ export async function occupyNow(formData: FormData) {
     const conflict = await tx.reservation.findFirst({
       where: {
         roomId,
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        status: { notIn: ["CANCELLED", "NO_SHOW", "CHECKED_OUT"] },
         checkIn: { lt: checkOut },
         checkOut: { gt: checkIn },
       },
@@ -106,7 +106,7 @@ export async function reserveForLater(formData: FormData) {
     const conflict = await tx.reservation.findFirst({
       where: {
         roomId,
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        status: { notIn: ["CANCELLED", "NO_SHOW", "CHECKED_OUT"] },
         checkIn: { lt: checkOut },
         checkOut: { gt: checkIn },
       },

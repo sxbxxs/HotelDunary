@@ -54,7 +54,7 @@ async function createReservation(formData: FormData) {
     const conflict = await tx.reservation.findFirst({
       where: {
         roomId,
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        status: { notIn: ["CANCELLED", "NO_SHOW", "CHECKED_OUT"] },
         checkIn: { lt: checkOut },
         checkOut: { gt: checkIn },
       },
