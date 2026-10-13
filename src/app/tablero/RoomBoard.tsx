@@ -76,12 +76,12 @@ export default function RoomBoard({
   );
 
   function cardClass(r: RoomCard) {
-    if (r.isOccupied) return "bg-sky-500 text-white";
-    if (r.isArriving) return "border-2 border-dashed border-sky-500 bg-white";
+    if (r.isOccupied) return "bg-[#7B241C] text-white";
+    if (r.isArriving) return "border-2 border-dashed border-[#7B241C] bg-[#F5EFE1]";
     if (r.status === "DIRTY") return "bg-amber-400 text-amber-950";
     if (r.status === "CLEANING") return "bg-amber-200 text-amber-900";
     if (r.status === "MAINTENANCE") return "bg-slate-200 text-slate-500";
-    return "border-2 border-sky-500 bg-white";
+    return "border-2 border-[#7B241C] bg-[#F5EFE1]";
   }
 
   return (
@@ -101,16 +101,16 @@ export default function RoomBoard({
           onClick={() => setFilter("free")}
           className={`rounded-md border-2 px-3 py-1.5 text-sm ${
             filter === "free"
-              ? "border-sky-500 bg-sky-500 text-white"
-              : "border-sky-500 bg-white text-sky-700 hover:bg-sky-50"
+              ? "border-[#7B241C] bg-[#7B241C] text-white"
+              : "border-[#7B241C] bg-white text-[#7B241C] hover:bg-red-50"
           }`}
         >
           Libres ({rooms.filter((r) => !r.isOccupied && !r.isArriving && r.status === "CLEAN").length})
         </button>
         <button
           onClick={() => setFilter("occupied")}
-          className={`rounded-md border border-sky-500 bg-sky-500 px-3 py-1.5 text-sm text-white ${
-            filter === "occupied" ? "ring-2 ring-offset-2 ring-sky-700" : ""
+          className={`rounded-md border border-[#7B241C] bg-[#7B241C] px-3 py-1.5 text-sm text-white ${
+            filter === "occupied" ? "ring-2 ring-offset-2 ring-[#5A1A15]" : ""
           }`}
         >
           Ocupadas ({rooms.filter((r) => r.isOccupied).length})
@@ -127,8 +127,8 @@ export default function RoomBoard({
           onClick={() => setFilter("arriving")}
           className={`rounded-md border-2 border-dashed px-3 py-1.5 text-sm ${
             filter === "arriving"
-              ? "border-sky-500 bg-sky-100 text-sky-800"
-              : "border-sky-500 bg-white text-sky-700 hover:bg-sky-50"
+              ? "border-[#7B241C] bg-red-50 text-[#7B241C]"
+              : "border-[#7B241C] bg-white text-[#7B241C] hover:bg-red-50"
           }`}
         >
           Reservadas hoy ({rooms.filter((r) => r.isArriving).length})
@@ -200,7 +200,7 @@ export default function RoomBoard({
 
       {floors.map((floor) => (
         <div key={floor} className="mb-6">
-          <h2 className="mb-2 text-sm font-medium text-slate-600">
+          <h2 className="mb-2 text-sm font-medium text-white drop-shadow">
             {floor === 0 ? "Sin piso asignado" : `Piso ${floor}`}
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">

@@ -49,6 +49,7 @@ model Room {
   floor        Int?
   status       HousekeepingStatus @default(CLEAN)
   active       Boolean            @default(true)
+  hasMinibar   Boolean            @default(false)
   notes        String?
   roomTypeId   Int
   roomType     RoomType           @relation(fields: [roomTypeId], references: [id])
@@ -84,6 +85,7 @@ model Reservation {
   children   Int                @default(0)
   notes      String?
   cancelReason   String?
+  lateFee        Int                @default(0)  
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
   roomId     Int
@@ -209,16 +211,17 @@ model AuditLog {
 }
 
 model HotelSettings {
-  id            Int      @id @default(1)
-  hotelName     String   @default("Mi Hotel")
-  nit           String?
-  address       String?
-  phone         String?
-  logoPath      String?
+  id             Int      @id @default(1)
+  hotelName      String   @default("Mi Hotel")
+  nit            String?
+  address        String?
+  phone          String?
+  logoPath       String?
   introVideoPath String?
-  primaryColor  String   @default("#0f172a")
-  accentColor   String   @default("#0ea5e9")
-  updatedAt     DateTime @updatedAt
+  backgroundPath String?
+  primaryColor   String   @default("#2A1215")
+  accentColor    String   @default("#6B1F24")
+  updatedAt      DateTime @updatedAt
 }
 
 model Shift {
@@ -235,3 +238,4 @@ model Shift {
   notes         String?
   closedAt      DateTime?
 }
+

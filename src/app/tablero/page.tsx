@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { reservationBalance } from "@/lib/billing";
+import { reservationBalanceLive } from "@/lib/billing";
 import RoomBoard from "./RoomBoard"; 
 import { reservationTotal } from "@/lib/billing";
 
@@ -25,7 +25,7 @@ export default async function TableroPage({
         where: {
           status: { in: ["CONFIRMED", "CHECKED_IN"] },
           checkIn: { lt: tomorrow },
-          checkOut: { gt: today },
+          checkOut: { gte: today },
         },
         include: { guest: true, payments: true, consumptions: true },
       },
@@ -52,12 +52,14 @@ export default async function TableroPage({
       reservation.checkIn.getTime() <= today.getTime();
 
     const balance = reservation
-      ? reservationBalance({
+      ? reservationBalanceLive({
           checkIn: reservation.checkIn,
           checkOut: reservation.checkOut,
           nightlyRate: reservation.nightlyRate,
           payments: reservation.payments,
           consumptions: reservation.consumptions,
+          status: reservation.status,
+          lateFee: reservation.lateFee,
         })
       : 0;
 
@@ -91,8 +93,10 @@ export default async function TableroPage({
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold">Tablero de habitaciones</h1>
-      <p className="mb-4 text-sm text-slate-500">Estado de hoy</p>
+      <h1 className="font-display mb-1 text-3xl font-semibold text-white drop-shadow-md">
+        Tablero de habitaciones
+      </h1>
+      <p className="mb-4 text-sm text-white/80 drop-shadow">Estado de hoy</p>
 
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

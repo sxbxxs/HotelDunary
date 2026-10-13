@@ -64,6 +64,7 @@ export default async function LoginPage({
 
         <form action={login} className="space-y-3">
           <div>
+            
             <label className="text-xs text-slate-500">Usuario</label>
             <input name="username" required autoFocus className={`${input} mt-1`} />
           </div>

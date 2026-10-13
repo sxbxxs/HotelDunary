@@ -46,7 +46,7 @@ export default async function EgresosPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Egresos</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Egresos</h1>
 
       <section>
         <h2 className="mb-3 text-lg font-medium">Registrar gasto</h2>

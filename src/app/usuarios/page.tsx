@@ -108,7 +108,7 @@ export default async function UsuariosPage({
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Usuarios</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Usuarios</h1>
 
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -127,7 +127,7 @@ export default async function UsuariosPage({
       )}
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Nuevo usuario</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Nuevo usuario</span> </h2>
         <form action={createUser} className="flex flex-wrap gap-3">
           <input name="name" placeholder="Nombre completo" required className={input} />
           <input name="username" placeholder="Usuario (para iniciar sesión)" required className={input} />
@@ -141,7 +141,7 @@ export default async function UsuariosPage({
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Listado</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Listado</span></h2>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">

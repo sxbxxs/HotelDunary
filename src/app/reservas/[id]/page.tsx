@@ -251,7 +251,7 @@ export default async function EditarReservaPage({
         <Link href="/reservas" className="text-sm text-slate-500 hover:underline">
           ← Volver a reservas
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold">
+        <h1 className="mt-2 text-2xl font-semibold text-white drop-shadow">
           Editar reserva de {reservation.guest.firstName} {reservation.guest.lastName}
         </h1>
         <p className="mt-1 text-sm text-slate-500">

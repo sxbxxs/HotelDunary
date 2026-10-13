@@ -117,7 +117,7 @@ export default async function FinanzasPage({
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Finanzas</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Finanzas</h1>
 
       <div className="flex flex-wrap gap-2">
         {ranges.map((r) => (
@@ -169,7 +169,8 @@ export default async function FinanzasPage({
       </div>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Egresos en este período</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">
+            Egresos en este periodo</span></h2>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">

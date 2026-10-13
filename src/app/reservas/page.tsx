@@ -2,8 +2,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { reservationTotal } from "@/lib/billing";
+import { reservationTotalLive, canCheckOutNow, computeLateFeeNow } from "@/lib/billing";
 import { logAction } from "@/lib/audit";
+
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -53,7 +54,7 @@ async function createReservation(formData: FormData) {
     // Se cruzan si: nueva.entrada < existente.salida Y nueva.salida > existente.entrada
     const conflict = await tx.reservation.findFirst({
       where: {
-        roomId,
+        roomId, 
         status: { notIn: ["CANCELLED", "NO_SHOW", "CHECKED_OUT"] },
         checkIn: { lt: checkOut },
         checkOut: { gt: checkIn },
@@ -92,11 +93,40 @@ async function setStatus(formData: FormData) {
   const cancelReason = String(formData.get("cancelReason") ?? "").trim() || null;
   if (!id || !["CHECKED_IN", "CHECKED_OUT", "CANCELLED"].includes(status)) return;
 
+  let lateFee = 0;
+  if (status === "CHECKED_OUT") {
+    const current = await prisma.reservation.findUnique({
+      where: { id },
+      include: { payments: true, consumptions: true },
+    });
+    if (!current) return;
+    if (!canCheckOutNow(current.checkOut)) {
+      redirect(
+        "/reservas?error=" +
+          encodeURIComponent(
+            "Esta reserva tiene salida en otra fecha. No se puede hacer check-out antes del día de salida."
+          )
+      );
+    }
+    lateFee = computeLateFeeNow(current.checkOut);
+    const totalWithFee = reservationTotalLive({ ...current, lateFee });
+    const paid = current.payments.reduce((sum, p) => sum + p.amount, 0);
+    if (totalWithFee - paid > 0) {
+      redirect(
+        "/reservas?error=" +
+          encodeURIComponent(
+            `No se puede hacer check-out: falta pagar ${(totalWithFee - paid).toLocaleString("es-CO")}.`
+          )
+      );
+    }
+  }
+
   const reservation = await prisma.reservation.update({
     where: { id },
     data: {
       status: status as "CHECKED_IN" | "CHECKED_OUT" | "CANCELLED",
       ...(status === "CANCELLED" ? { cancelReason } : {}),
+      ...(status === "CHECKED_OUT" ? { lateFee } : {}),
     },
     include: { guest: true, room: true },
   });
@@ -140,7 +170,7 @@ const statusLabel: Record<string, { text: string; className: string }> = {
 
 const input = "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
 const button =
-  "rounded-md bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700";
+  "rounded-md bg-[#7B241C] px-4 py-2 text-sm text-white hover:bg-[#7B241C]";
 const smallButton =
   "rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100";
 
@@ -167,7 +197,7 @@ export default async function ReservasPage({
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Reservas</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Reservas</h1>
 
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -181,7 +211,7 @@ export default async function ReservasPage({
       )}
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Nueva reserva</h2>
+        <h2 className="mb-3 text-lg font-medium text-white drop-shadow">Nueva reserva</h2>
         {guests.length === 0 || rooms.length === 0 ? (
           <p className="text-sm text-slate-500">
             Necesitas al menos un huésped y una habitación registrados.
@@ -189,7 +219,7 @@ export default async function ReservasPage({
         ) : (
           <form action={createReservation} className="flex flex-wrap items-end gap-3">
             <label className="text-xs text-slate-500">
-              Huésped
+              <span className="text-white drop-shadow">Huésped</span>
               <select name="guestId" required className={`${input} mt-1 block`}>
                 {guests.map((g) => (
                   <option key={g.id} value={g.id}>
@@ -199,7 +229,7 @@ export default async function ReservasPage({
               </select>
             </label>
             <label className="text-xs text-slate-500">
-              Habitación
+              <span className="text-white drop-shadow">Habitacion</span>
               <select name="roomId" required className={`${input} mt-1 block`}>
                 {rooms.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -209,19 +239,19 @@ export default async function ReservasPage({
               </select>
             </label>
             <label className="text-xs text-slate-500">
-              Entrada
+              <span className="text-white drop-shadow">Entrada</span>
               <input name="checkIn" type="date" required className={`${input} mt-1 block`} />
             </label>
             <label className="text-xs text-slate-500">
-              Salida
+              <span className="text-white drop-shadow">salida</span>
               <input name="checkOut" type="date" required className={`${input} mt-1 block`} />
             </label>
             <label className="text-xs text-slate-500">
-              Adultos
+              <span className="text-white drop-shadow">Adultos</span>
               <input name="adults" type="number" min="1" defaultValue="1" className={`${input} mt-1 block w-20`} />
             </label>
             <label className="text-xs text-slate-500">
-              Niños
+              <span className="text-white drop-shadow">Niños</span>
               <input name="children" type="number" min="0" defaultValue="0" className={`${input} mt-1 block w-20`} />
             </label>
             <button className={button}>Crear reserva</button>
@@ -230,7 +260,7 @@ export default async function ReservasPage({
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Listado</h2>
+        <h2 className="mb-3 text-lg font-medium text-white drop-shadow">Listado</h2>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">
@@ -267,7 +297,7 @@ export default async function ReservasPage({
                     <td className="px-4 py-2">{fmt(r.checkIn)}</td>
                     <td className="px-4 py-2">{fmt(r.checkOut)}</td>
                     <td className="px-4 py-2">{nights}</td>
-                    <td className="px-4 py-2">{cop.format(reservationTotal(r))}</td>
+                    <td className="px-4 py-2">{cop.format(reservationTotalLive(r))}</td>
                     <td className="px-4 py-2">
                       <span className={`rounded-full px-2 py-1 text-xs ${st.className}`}>
                         {st.text}

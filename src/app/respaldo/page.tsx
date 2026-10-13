@@ -31,7 +31,7 @@ export default async function RespaldoPage({
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Copias de seguridad</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Copias de seguridad</h1>
 
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

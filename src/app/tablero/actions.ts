@@ -3,6 +3,7 @@
 import type { Guest } from "@/generated/prisma/client";
 export type { Guest };
 import { logAction } from "@/lib/audit";
+import { canCheckOutNow, computeLateFeeNow, reservationTotalLive } from "@/lib/billing";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -261,9 +262,36 @@ export async function checkOutReservation(formData: FormData) {
   const reservationId = Number(formData.get("reservationId"));
   if (!reservationId) return;
 
+  const current = await prisma.reservation.findUnique({
+    where: { id: reservationId },
+    include: { payments: true, consumptions: true },
+  });
+  if (!current) return;
+
+  if (!canCheckOutNow(current.checkOut)) {
+    redirect(
+      "/tablero?error=" +
+        encodeURIComponent(
+          "Esta habitación tiene reserva hasta otra fecha. No se puede hacer check-out antes del día de salida."
+        )
+    );
+  }
+
+  const lateFee = computeLateFeeNow(current.checkOut);
+  const totalWithFee = reservationTotalLive({ ...current, lateFee });
+  const paid = current.payments.reduce((sum, p) => sum + p.amount, 0);
+  if (totalWithFee - paid > 0) {
+    redirect(
+      "/tablero?error=" +
+        encodeURIComponent(
+          `No se puede hacer check-out: falta pagar ${(totalWithFee - paid).toLocaleString("es-CO")}.`
+        )
+    );
+  }
+
   const reservation = await prisma.reservation.update({
     where: { id: reservationId },
-    data: { status: "CHECKED_OUT" },
+    data: { status: "CHECKED_OUT", lateFee },
     include: { room: true, guest: true },
   });
   await prisma.room.update({
@@ -272,7 +300,8 @@ export async function checkOutReservation(formData: FormData) {
   });
   await logAction(
     "Check-out (tablero)",
-    `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}`
+    `Hab. ${reservation.room.number}, ${reservation.guest.firstName} ${reservation.guest.lastName}` +
+      (lateFee > 0 ? ` · Recargo por atraso: ${lateFee.toLocaleString("es-CO")}` : "")
   );
   revalidateAll();
 }
@@ -358,14 +387,7 @@ export async function registerPaymentFromBoard(formData: FormData) {
     roomNumber = reservation.room.number;
     guestName = `${reservation.guest.firstName} ${reservation.guest.lastName}`;
 
-    const nights = Math.round(
-      (reservation.checkOut.getTime() - reservation.checkIn.getTime()) / (24 * 60 * 60 * 1000)
-    );
-    const consumed = reservation.consumptions.reduce(
-      (sum, c) => sum + c.quantity * c.unitPrice,
-      0
-    );
-    const total = nights * reservation.nightlyRate + consumed;
+    const total = reservationTotalLive(reservation);
     const paid = reservation.payments.reduce((sum, p) => sum + p.amount, 0);
     const balance = total - paid;
 

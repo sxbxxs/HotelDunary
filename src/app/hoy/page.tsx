@@ -1,6 +1,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { reservationBalance } from "@/lib/billing";
+import { reservationBalanceLive, reservationTotalLive, canCheckOutNow, computeLateFeeNow } from "@/lib/billing";
+import { redirect } from "next/navigation";
+
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +15,40 @@ async function setStatus(formData: FormData) {
   const status = String(formData.get("status"));
   if (!id || !["CHECKED_IN", "CHECKED_OUT"].includes(status)) return;
 
+  let lateFee = 0;
+  if (status === "CHECKED_OUT") {
+    const current = await prisma.reservation.findUnique({
+      where: { id },
+      include: { payments: true, consumptions: true },
+    });
+    if (!current) return;
+    if (!canCheckOutNow(current.checkOut)) {
+      redirect(
+        "/hoy?error=" +
+          encodeURIComponent(
+            "Esa reserva tiene salida en otra fecha. No se puede hacer check-out antes del día de salida."
+          )
+      );
+    }
+    lateFee = computeLateFeeNow(current.checkOut);
+    const totalWithFee = reservationTotalLive({ ...current, lateFee });
+    const paid = current.payments.reduce((sum, p) => sum + p.amount, 0);
+    if (totalWithFee - paid > 0) {
+      redirect(
+        "/hoy?error=" +
+          encodeURIComponent(
+            `No se puede hacer check-out: falta pagar ${(totalWithFee - paid).toLocaleString("es-CO")}.`
+          )
+      );
+    }
+  }
+
   const reservation = await prisma.reservation.update({
     where: { id },
-    data: { status: status as "CHECKED_IN" | "CHECKED_OUT" },
+    data: {
+      status: status as "CHECKED_IN" | "CHECKED_OUT",
+      ...(status === "CHECKED_OUT" ? { lateFee } : {}),
+    },
   });
 
   if (status === "CHECKED_OUT") {
@@ -39,7 +72,12 @@ const cop = new Intl.NumberFormat("es-CO", {
 const smallButton =
   "rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100";
 
-export default async function HoyPage() {
+export default async function HoyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   // Hoy a medianoche UTC, igual que se guardan las fechas de las reservas
   const now = new Date();
   const today = new Date(
@@ -86,7 +124,7 @@ export default async function HoyPage() {
   });
 
     function balanceOf(r: (typeof inHouse)[number]) {
-    return reservationBalance(r);
+    return reservationBalanceLive(r);
   }
 
   const occupancy = totalRooms
@@ -96,7 +134,12 @@ export default async function HoyPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold">Resumen de hoy</h1>
+        <h1 className="text-2xl font-semibold text-white drop-shadow">Resumen de hoy</h1>
+              {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
         <p className="text-sm capitalize text-slate-500">
           {today.toLocaleDateString("es-CO", {
             timeZone: "UTC",
@@ -108,26 +151,46 @@ export default async function HoyPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="text-2xl font-semibold">{arrivals.length}</div>
-          <div className="text-sm text-slate-500">Llegadas pendientes</div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="text-2xl font-semibold">{departures.length}</div>
-          <div className="text-sm text-slate-500">Salidas pendientes</div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="text-2xl font-semibold">{inHouse.length}</div>
-          <div className="text-sm text-slate-500">Hospedados ahora</div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="text-2xl font-semibold">{occupancy}%</div>
-          <div className="text-sm text-slate-500">
-            Ocupación ({inHouse.length} de {totalRooms})
-          </div>
-        </div>
-      </div>
+```jsx
+<div className="grid gap-4 sm:grid-cols-4">
+  <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="text-2xl font-semibold text-[#5E1014]">
+      {arrivals.length}
+    </div>
+    <div className="text-sm text-slate-500">
+      Llegadas pendientes
+    </div>
+  </div>
+
+  <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="text-2xl font-semibold text-[#5E1014]">
+      {departures.length}
+    </div>
+    <div className="text-sm text-slate-500">
+      Salidas pendientes
+    </div>
+  </div>
+
+  <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="text-2xl font-semibold text-[#5E1014]">
+      {inHouse.length}
+    </div>
+    <div className="text-sm text-slate-500">
+      Hospedados ahora
+    </div>
+  </div>
+
+  <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="text-2xl font-semibold text-[#5E1014]">
+      {occupancy}%
+    </div>
+    <div className="text-sm text-slate-500">
+      Ocupación ({inHouse.length} de {totalRooms})
+    </div>
+  </div>
+</div>
+```
+
 
       {(overdueArrivals.length > 0 || overdueDepartures.length > 0) && (
         <section className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -148,7 +211,7 @@ export default async function HoyPage() {
       )}
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Llegan hoy</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Llegan hoy</span></h2>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">
@@ -193,7 +256,7 @@ export default async function HoyPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Salen hoy</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Salen hoy</span></h2>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">
@@ -243,7 +306,7 @@ export default async function HoyPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Hospedados ahora</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Hospedados ahora</span></h2>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">

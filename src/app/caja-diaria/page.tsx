@@ -164,11 +164,11 @@ export default async function CambioDeTurnoPage({
   }
 
   const input = "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
-  const button = "rounded-md bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700";
+  const button = "rounded-md bg-[#7B241C] px-4 py-2 text-sm text-white hover:bg-slate-700";
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Cambio de turno</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Cambio de turno</h1>
 
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -243,11 +243,11 @@ export default async function CambioDeTurnoPage({
           )}
 
           <div>
-            <h2 className="mb-3 text-lg font-medium">Cerrar turno y entregar</h2>
+            <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Cerrar turno y entregar</span></h2>
             <form action={closeShift} className="flex flex-wrap items-end gap-3">
               <input type="hidden" name="id" value={openShiftRecord.id} />
               <label className="text-xs text-slate-500">
-                Efectivo contado ahora
+                <span className="text-white drop-shadow">Efectivo contado ahora</span>
                 <input
                   name="countedCash"
                   type="number"
@@ -257,7 +257,7 @@ export default async function CambioDeTurnoPage({
                 />
               </label>
               <label className="text-xs text-slate-500">
-                Nota (opcional)
+                <span className="text-white drop-shadow">Nota (opcional) </span>
                 <input name="notes" className={`${input} mt-1 block`} />
               </label>
               <button className={button}>Cerrar mi turno</button>
@@ -267,7 +267,7 @@ export default async function CambioDeTurnoPage({
       )}
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Últimos turnos cerrados</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Ultimos turnos cerrados</span></h2>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">
