@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BedDouble, PanelsTopBottom, Car, Bike } from "lucide-react";
+import { BedDouble, PanelsTopBottom, Car, Bike, DollarSign } from "lucide-react";
 import {
   checkInReservation,
   checkOutReservation,
@@ -13,6 +13,7 @@ import {
   reserveForLater,
   findGuestByDocument,
   createGuestInline,
+  registerExpenseFromBoard,
   type Guest,
 } from "./actions";
 
@@ -57,6 +58,7 @@ export default function RoomBoard({
   deskProducts: DeskProduct[];
 }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [showExpense, setShowExpense] = useState(false);
   const selected = rooms.find((r) => r.id === selectedId) ?? null;
 
   const [search, setSearch] = useState("");
@@ -269,7 +271,56 @@ export default function RoomBoard({
           </div>
         </div>
       ))}
+            <button
+        onClick={() => setShowExpense(true)}
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#7B241C] text-white shadow-lg hover:bg-[#5A1A15]"
+        title="Registrar egreso"
+      >
+        <DollarSign size={24} />
+      </button>
 
+      {showExpense && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setShowExpense(false)}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-lg bg-[#F5EFE1] p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowExpense(false)}
+              className="absolute right-4 top-4 text-sm text-slate-400 hover:text-slate-700"
+            >
+              ✕
+            </button>
+            <h3 className="mb-3 text-lg font-medium text-[#2E2015]">Registrar egreso</h3>
+            <form action={registerExpenseFromBoard} className="space-y-3">
+              <label className="block text-xs text-slate-600">
+                Concepto
+                <input
+                  name="concept"
+                  placeholder="Ej. Papel higiénico"
+                  required
+                  className={`${input} mt-1 block w-full`}
+                />
+              </label>
+              <label className="block text-xs text-slate-600">
+                Valor (COP)
+                <input
+                  name="amount"
+                  type="number"
+                  min="1"
+                  required
+                  className={`${input} mt-1 block w-full`}
+                />
+              </label>
+              <button className={button}>Registrar</button>
+            </form>
+          </div>
+        </div>
+      )}
+      
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"

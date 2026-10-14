@@ -498,3 +498,21 @@ export async function createGuestInline(data: {
   });
   return { guest };
 }
+
+export async function registerExpenseFromBoard(formData: FormData) {
+  const concept = String(formData.get("concept") ?? "").trim();
+  const amount = Math.round(Number(formData.get("amount")));
+
+  if (!concept || !(amount > 0)) {
+    redirect("/tablero?error=" + encodeURIComponent("Escribe un concepto y un valor válido."));
+  }
+
+  await prisma.expense.create({ data: { concept, amount } });
+  await logAction("Registró egreso (tablero)", `${concept} · ${amount.toLocaleString("es-CO")}`);
+
+  revalidatePath("/tablero");
+  revalidatePath("/egresos");
+  revalidatePath("/finanzas");
+  revalidatePath("/caja-diaria");
+  redirect("/tablero?ok=1");
+}
