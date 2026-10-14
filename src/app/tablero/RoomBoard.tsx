@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BedDouble, PanelsTopBottom, Car, Bike } from "lucide-react";
 import {
   checkInReservation,
   checkOutReservation,
@@ -28,6 +29,9 @@ type RoomCard = {
   balance: number;
   total: number;
   products: { productId: number; name: string; price: number; quantity: number }[];
+  hasVehicle: boolean;
+  vehicleType: string;
+  vehiclePlate: string;
 };
 
 type DeskProduct = { productId: number; name: string; price: number; quantity: number };
@@ -59,7 +63,11 @@ export default function RoomBoard({
   const term = search.trim().toLowerCase();
   const matches =
     term.length > 0
-      ? rooms.filter((r) => r.guestName.toLowerCase().includes(term))
+      ? rooms.filter(
+          (r) =>
+            r.guestName.toLowerCase().includes(term) ||
+            r.vehiclePlate.toLowerCase().includes(term)
+        )
       : [];
 
   const [filter, setFilter] = useState<"all" | "free" | "occupied" | "dirty" | "arriving">("all");
@@ -176,7 +184,7 @@ export default function RoomBoard({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar huésped por nombre"
+          placeholder="Buscar por nombre o placa del vehículo"
           className={`${input} w-full max-w-sm`}
         />
         {term.length > 0 && (
@@ -188,7 +196,7 @@ export default function RoomBoard({
                 <button
                   key={r.id}
                   onClick={() => setSelectedId(r.id)}
-                  className={smallButton}
+                  className="rounded-md border border-[#7B241C] bg-[#F5EFE1] px-3 py-1.5 text-sm font-medium text-[#7B241C] hover:bg-white"
                 >
                   Hab. {r.number} · {r.guestName}
                 </button>
@@ -213,20 +221,35 @@ export default function RoomBoard({
                   className={`flex min-h-24 flex-col justify-between rounded-lg p-3 text-left text-sm transition ${cardClass(
                     room
                   )} ${
-                    selectedId === room.id || matches.some((m) => m.id === room.id)
+                    selectedId === room.id
                       ? "ring-2 ring-offset-2 ring-slate-900"
+                      : matches.some((m) => m.id === room.id)
+                      ? "ring-4 ring-offset-2 ring-amber-400"
                       : ""
                   }`}
                 >
                   <div className="flex items-baseline justify-between">
                     <span className="text-base font-semibold">{room.number}</span>
-                    <span className="text-xs opacity-80">{room.roomTypeName}</span>
+                    <span className="flex items-center gap-1 text-xs opacity-80">
+                      {room.roomTypeName}
+                      {room.roomTypeName.toLowerCase().includes("camarote") ? (
+                        <PanelsTopBottom size={16} />
+                      ) : (
+                        <BedDouble size={16} />
+                      )}
+                    </span>
                   </div>
                   <div>
                     {room.isOccupied || room.isArriving ? (
                       <>
-                        <div className="truncate text-xs font-medium">
+                        <div className="flex items-center gap-1 truncate text-xs font-medium">
                           {room.isArriving ? "Llega hoy" : "Ocupada"}
+                          {room.hasVehicle &&
+                            (room.vehicleType === "MOTORCYCLE" ? (
+                              <Bike size={13} />
+                            ) : (
+                              <Car size={13} />
+                            ))}
                         </div>
                         <div className="truncate text-xs">{room.guestName}</div>
                         {room.isOccupied && room.balance > 0 && (
@@ -457,21 +480,7 @@ function FreeRoomPanel({ roomId }: { roomId: number }) {
         </div>
 
         {tab === "occupy" ? (
-          <form action={occupyNow} className="flex flex-wrap items-end gap-3">
-            <input type="hidden" name="roomId" value={roomId} />
-            <input type="hidden" name="guestId" value={chosenGuest.id} />
-            <label className="text-xs text-slate-500">
-              Noches
-              <input
-                name="nights"
-                type="number"
-                min="1"
-                defaultValue="1"
-                className={`${input} mt-1 block w-20`}
-              />
-            </label>
-            <button className={button}>Ocupar habitación</button>
-          </form>
+          <OccupyForm roomId={roomId} guestId={chosenGuest.id} />
         ) : (
           <form action={reserveForLater} className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="roomId" value={roomId} />
@@ -562,5 +571,59 @@ function FreeRoomPanel({ roomId }: { roomId: number }) {
         </form>
       )}
     </div>
+  );
+}
+
+function OccupyForm({ roomId, guestId }: { roomId: number; guestId: number }) {
+  const [hasVehicle, setHasVehicle] = useState(false);
+
+  return (
+    <form action={occupyNow} className="flex flex-wrap items-end gap-3">
+      <input type="hidden" name="roomId" value={roomId} />
+      <input type="hidden" name="guestId" value={guestId} />
+      <label className="text-xs text-slate-500">
+        Noches
+        <input
+          name="nights"
+          type="number"
+          min="1"
+          defaultValue="1"
+          className={`${input} mt-1 block w-20`}
+        />
+      </label>
+      <label className="flex items-center gap-2 text-xs text-slate-500">
+        <input
+          type="checkbox"
+          name="hasVehicle"
+          checked={hasVehicle}
+          onChange={(e) => setHasVehicle(e.target.checked)}
+        />
+        Tiene vehículo
+      </label>
+      {hasVehicle && (
+        <>
+          <label className="text-xs text-slate-500">
+            Tipo
+            <select name="vehicleType" className={`${input} mt-1 block w-28`}>
+              <option value="CAR">Carro</option>
+              <option value="MOTORCYCLE">Moto</option>
+            </select>
+          </label>
+          <label className="text-xs text-slate-500">
+            Placa
+            <input
+              name="vehiclePlate"
+              placeholder="ABC123"
+              className={`${input} mt-1 block w-24 uppercase`}
+            />
+          </label>
+          <label className="text-xs text-slate-500">
+            Color
+            <input name="vehicleColor" placeholder="Rojo" className={`${input} mt-1 block w-24`} />
+          </label>
+        </>
+      )}
+      <button className={button}>Ocupar habitación</button>
+    </form>
   );
 }

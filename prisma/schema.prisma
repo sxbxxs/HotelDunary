@@ -85,7 +85,11 @@ model Reservation {
   children   Int                @default(0)
   notes      String?
   cancelReason   String?
-  lateFee        Int                @default(0)  
+  lateFee        Int                @default(0)
+  hasVehicle     Boolean            @default(false)
+  vehicleType    String?
+  vehiclePlate   String?
+  vehicleColor   String? 
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
   roomId     Int

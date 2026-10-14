@@ -20,6 +20,10 @@ export async function occupyNow(formData: FormData) {
   const roomId = Number(formData.get("roomId"));
   const guestId = Number(formData.get("guestId"));
   const nights = Number(formData.get("nights")) || 1;
+  const hasVehicle = formData.get("hasVehicle") === "on";
+  const vehicleType = hasVehicle ? String(formData.get("vehicleType") ?? "CAR") : null;
+  const vehiclePlate = hasVehicle ? String(formData.get("vehiclePlate") ?? "").trim().toUpperCase() : null;
+  const vehicleColor = hasVehicle ? String(formData.get("vehicleColor") ?? "").trim() : null;
 
   if (!roomId || !guestId || nights < 1) {
     redirect("/tablero?error=" + encodeURIComponent("Faltan datos para ocupar la habitación."));
@@ -60,6 +64,10 @@ export async function occupyNow(formData: FormData) {
         checkOut,
         status: "CHECKED_IN",
         nightlyRate: room.roomType.nightlyRate,
+        hasVehicle,
+        vehicleType,
+        vehiclePlate,
+        vehicleColor,
       },
     });
     return null;
@@ -67,7 +75,10 @@ export async function occupyNow(formData: FormData) {
 
   if (error) redirect("/tablero?error=" + encodeURIComponent(error));
 
-  await logAction("Ocupó habitación (tablero)", `Hab. ${roomNumber}`);
+  await logAction(
+    "Ocupó habitación (tablero)",
+    `Hab. ${roomNumber}` + (hasVehicle ? ` · Vehículo: ${vehiclePlate} (${vehicleColor})` : "")
+  );
   revalidateAll();
   redirect("/tablero?ok=1");
 }

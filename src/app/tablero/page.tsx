@@ -76,6 +76,9 @@ export default async function TableroPage({
       isOccupied,
       isArriving,
       balance,
+      hasVehicle: reservation?.hasVehicle ?? false,
+      vehicleType: reservation?.vehicleType ?? "CAR",
+      vehiclePlate: reservation?.vehiclePlate ?? "",
             products: roomStocks
         .filter((s) => s.roomId === room.id)
         .map((s) => ({ productId: s.productId, name: s.product.name, price: s.product.price, quantity: s.quantity })),
