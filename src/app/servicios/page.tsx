@@ -12,6 +12,12 @@ const cop = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
+const vehicleTypeLabel: Record<string, string> = {
+  CAR: "Carro",
+  MOTORCYCLE: "Moto",
+  TRUCK: "Camión",
+};
+
 async function sellPoolPass(formData: FormData) {
   "use server";
   const guestName = String(formData.get("guestName") ?? "").trim();
@@ -45,15 +51,33 @@ async function sellPoolPass(formData: FormData) {
   redirect("/servicios?ok=1");
 }
 
-async function registerParking(formData: FormData) {
+async function registerParkingEntry(formData: FormData) {
   "use server";
   const vehicleType = String(formData.get("vehicleType") ?? "CAR");
   const plate = String(formData.get("plate") ?? "").trim().toUpperCase();
-  const billing = String(formData.get("billing") ?? "HOUR");
-  const quantity = Number(formData.get("quantity")) || 1;
+  const color = String(formData.get("color") ?? "").trim() || null;
 
   if (!plate) {
     redirect("/servicios?error=" + encodeURIComponent("Escribe la placa."));
+  }
+
+  await prisma.parkingEntry.create({ data: { vehicleType, plate, color } });
+  await logAction("Entrada al parqueadero", `${vehicleTypeLabel[vehicleType]} · ${plate}`);
+
+  revalidatePath("/servicios");
+  redirect("/servicios?ok=1");
+}
+
+async function closeParkingEntry(formData: FormData) {
+  "use server";
+  const id = Number(formData.get("id"));
+  const billingMode = String(formData.get("billingMode") ?? "HOUR");
+  const method = String(formData.get("method") ?? "CASH");
+  if (!id) return;
+
+  const entry = await prisma.parkingEntry.findUnique({ where: { id } });
+  if (!entry || entry.exitAt) {
+    redirect("/servicios?error=" + encodeURIComponent("Ese vehículo ya no está en el parqueadero."));
   }
 
   const settings = await getHotelSettings();
@@ -62,15 +86,32 @@ async function registerParking(formData: FormData) {
     MOTORCYCLE: { hour: settings.parkingMotoHour, day: settings.parkingMotoDay },
     TRUCK: { hour: settings.parkingTruckHour, day: settings.parkingTruckDay },
   };
-  const rate = rates[vehicleType] ?? rates.CAR;
-  const unitPrice = billing === "DAY" ? rate.day : rate.hour;
-  const amount = unitPrice * quantity;
+  const rate = rates[entry!.vehicleType] ?? rates.CAR;
 
-  await prisma.expense.create({
-    data: { concept: `Ingreso contabilizado aparte`, amount: 0 }, // placeholder, se reemplaza abajo
-  }).catch(() => null);
+  const now = new Date();
+  const hoursParked = Math.max(1, Math.ceil((now.getTime() - entry!.entryAt.getTime()) / (60 * 60 * 1000)));
+  const amount =
+    billingMode === "DAY"
+      ? Math.max(1, Math.ceil(hoursParked / 24)) * rate.day
+      : hoursParked * rate.hour;
 
-  redirect("/servicios?error=" + encodeURIComponent("Función de parqueadero: falta terminar el guardado. Avísame para seguir."));
+  await prisma.parkingEntry.update({
+    where: { id },
+    data: {
+      exitAt: now,
+      billingMode,
+      amount,
+      method: method as "CASH" | "CARD" | "TRANSFER" | "OTHER",
+    },
+  });
+
+  await logAction(
+    "Salida de parqueadero",
+    `${vehicleTypeLabel[entry!.vehicleType]} · ${entry!.plate} · ${amount.toLocaleString("es-CO")}`
+  );
+
+  revalidatePath("/servicios");
+  redirect("/servicios?ok=1");
 }
 
 export default async function ServiciosPage({
@@ -92,8 +133,20 @@ export default async function ServiciosPage({
     take: 10,
   });
 
+  const activeParking = await prisma.parkingEntry.findMany({
+    where: { exitAt: null },
+    orderBy: { entryAt: "desc" },
+  });
+
+  const recentParking = await prisma.parkingEntry.findMany({
+    where: { exitAt: { not: null } },
+    orderBy: { exitAt: "desc" },
+    take: 10,
+  });
+
   const input = "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
   const button = "rounded-md bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700";
+  const smallButton = "rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100";
 
   return (
     <div className="space-y-8">
@@ -180,9 +233,111 @@ export default async function ServiciosPage({
       {settings.hasParking && (
         <section className="rounded-lg bg-[#F5EFE1] p-4">
           <h2 className="mb-3 text-lg font-medium text-[#2E2015]">Parqueadero</h2>
-          <p className="text-sm text-slate-500">
-            Esta parte todavía no está terminada. Avísame para seguir con ella.
+          <p className="mb-3 text-xs text-slate-500">
+            Solo para vehículos que no son de huéspedes (los huéspedes ya quedan registrados al
+            ocupar su habitación).
           </p>
+
+          <form action={registerParkingEntry} className="mb-4 flex flex-wrap items-end gap-3">
+            <label className="text-xs text-slate-500">
+              Tipo
+              <select name="vehicleType" className={`${input} mt-1 block`}>
+                <option value="CAR">Carro</option>
+                <option value="MOTORCYCLE">Moto</option>
+                <option value="TRUCK">Camión</option>
+              </select>
+            </label>
+            <label className="text-xs text-slate-500">
+              Placa
+              <input name="plate" required className={`${input} mt-1 block w-28 uppercase`} />
+            </label>
+            <label className="text-xs text-slate-500">
+              Color (opcional)
+              <input name="color" className={`${input} mt-1 block w-28`} />
+            </label>
+            <button className={button}>Registrar entrada</button>
+          </form>
+
+          <h3 className="mb-2 text-sm font-medium text-[#2E2015]">Vehículos en el parqueadero</h3>
+          <div className="mb-4 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-100 text-left">
+                <tr>
+                  <th className="px-4 py-2">Tipo</th>
+                  <th className="px-4 py-2">Placa</th>
+                  <th className="px-4 py-2">Entrada</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeParking.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-3 text-slate-500">
+                      No hay vehículos de pago en el parqueadero.
+                    </td>
+                  </tr>
+                )}
+                {activeParking.map((p) => (
+                  <tr key={p.id} className="border-t border-slate-100">
+                    <td className="px-4 py-2">{vehicleTypeLabel[p.vehicleType]}</td>
+                    <td className="px-4 py-2">{p.plate}</td>
+                    <td className="px-4 py-2">
+                      {p.entryAt.toLocaleString("es-CO", {
+                        timeZone: "America/Bogota",
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
+                    </td>
+                    <td className="px-4 py-2">
+                      <form action={closeParkingEntry} className="flex flex-wrap items-center gap-2">
+                        <input type="hidden" name="id" value={p.id} />
+                        <select name="billingMode" className="rounded-md border border-slate-300 px-2 py-1 text-xs">
+                          <option value="HOUR">Por hora</option>
+                          <option value="DAY">Por día</option>
+                        </select>
+                        <select name="method" className="rounded-md border border-slate-300 px-2 py-1 text-xs">
+                          <option value="CASH">Efectivo</option>
+                          <option value="CARD">Tarjeta</option>
+                          <option value="TRANSFER">Transferencia</option>
+                          <option value="OTHER">Otro</option>
+                        </select>
+                        <button className={smallButton}>Cobrar y sacar</button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="mb-2 text-sm font-medium text-[#2E2015]">Últimas salidas</h3>
+          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-100 text-left">
+                <tr>
+                  <th className="px-4 py-2">Tipo</th>
+                  <th className="px-4 py-2">Placa</th>
+                  <th className="px-4 py-2">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentParking.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-3 text-slate-500">
+                      Todavía no hay salidas registradas.
+                    </td>
+                  </tr>
+                )}
+                {recentParking.map((p) => (
+                  <tr key={p.id} className="border-t border-slate-100">
+                    <td className="px-4 py-2">{vehicleTypeLabel[p.vehicleType]}</td>
+                    <td className="px-4 py-2">{p.plate}</td>
+                    <td className="px-4 py-2">{cop.format(p.amount ?? 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </div>

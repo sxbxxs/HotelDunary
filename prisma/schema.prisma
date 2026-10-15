@@ -264,3 +264,16 @@ model PoolPass {
   soldAt        DateTime @default(now())
 }
 
+
+model ParkingEntry {
+  id          Int       @id @default(autoincrement())
+  vehicleType String // CAR, MOTORCYCLE, TRUCK
+  plate       String
+  color       String?
+  entryAt     DateTime  @default(now())
+  exitAt      DateTime?
+  billingMode String? // HOUR o DAY, se fija al salir
+  amount      Int?
+  method      PaymentMethod?
+}
+
