@@ -18,6 +18,7 @@ import {
   LogOut,
   CreditCard,
   Sun,
+  Waves,
 } from "lucide-react";
 import { logout } from "@/app/login/actions";
 
@@ -29,7 +30,7 @@ const links = [
   { href: "/pagos", label: "Caja y pagos", icon: CreditCard },
   { href: "/huespedes", label: "Huéspedes", icon: Users },
   { href: "/caja-diaria", label: "Cambio de turno", icon: ArrowLeftRight },
-
+    { href: "/servicios", label: "Servicios", icon: Waves },
 ];
 
 const adminLinks = [

@@ -225,6 +225,16 @@ model HotelSettings {
   backgroundPath String?
   primaryColor   String   @default("#2A1215")
   accentColor    String   @default("#6B1F24")
+  hasPool          Boolean  @default(false)
+  poolGuestsFree   Boolean  @default(true)
+  poolPrice        Int      @default(0)
+  hasParking       Boolean  @default(false)
+  parkingCarHour   Int      @default(0)
+  parkingCarDay    Int      @default(0)
+  parkingMotoHour  Int      @default(0)
+  parkingMotoDay   Int      @default(0)
+  parkingTruckHour Int      @default(0)
+  parkingTruckDay  Int      @default(0)  
   updatedAt      DateTime @updatedAt
 }
 
@@ -241,5 +251,16 @@ model Shift {
   difference    Int?
   notes         String?
   closedAt      DateTime?
+}
+
+
+model PoolPass {
+  id            Int      @id @default(autoincrement())
+  guestName     String
+  isGuestOfHotel Boolean
+  reservationId Int?
+  amount        Int
+  method        PaymentMethod?
+  soldAt        DateTime @default(now())
 }
 
