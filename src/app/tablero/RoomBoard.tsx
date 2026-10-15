@@ -35,7 +35,15 @@ type RoomCard = {
   vehiclePlate: string;
 };
 
-type DeskProduct = { productId: number; name: string; price: number; quantity: number };
+type DeskProduct = {
+  productId: number;
+  name: string;
+  price: number;
+  quantity: number;
+  category: string;
+};
+
+type OccupiedRoom = { reservationId: number; label: string };
 
 const housekeepingLabel: Record<string, string> = {
   CLEAN: "Libre",
@@ -53,9 +61,11 @@ const input = "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
 export default function RoomBoard({
   rooms,
   deskProducts,
+  occupiedRooms,
 }: {
   rooms: RoomCard[];
   deskProducts: DeskProduct[];
+  occupiedRooms: OccupiedRoom[];
 }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
     const [showExpense, setShowExpense] = useState(false);
@@ -146,39 +156,17 @@ export default function RoomBoard({
       </div>
 
       {deskProducts.length > 0 && (
-        <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-medium text-slate-600">
-            Venta en recepción (exhibidoras)
-          </h2>
-          <form action={sellFromDesk} className="flex flex-wrap items-end gap-3">
-            <label className="text-xs text-slate-500">
-              Producto
-              <select name="productId" required className={`${input} mt-1 block`}>
-                {deskProducts.map((p) => (
-                  <option key={p.productId} value={p.productId}>
-                    {p.name} ({p.quantity} disp., {p.price.toLocaleString("es-CO")})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs text-slate-500">
-              Cantidad
-              <input
-                name="quantity"
-                type="number"
-                min="1"
-                defaultValue="1"
-                className={`${input} mt-1 block w-20`}
-              />
-            </label>
-            <select name="method" className={input}>
-              <option value="CASH">Efectivo</option>
-              <option value="CARD">Tarjeta</option>
-              <option value="TRANSFER">Transferencia</option>
-              <option value="OTHER">Otro</option>
-            </select>
-            <button className={button}>Vender</button>
-          </form>
+        <div className="mb-6 grid gap-4 sm:grid-cols-2">
+          <DeskSaleForm
+            title="Exhibidora de bebidas"
+            products={deskProducts.filter((p) => p.category === "EXHIBIDORA_BEBIDAS")}
+            occupiedRooms={occupiedRooms}
+          />
+          <DeskSaleForm
+            title="Exhibidora de comida"
+            products={deskProducts.filter((p) => p.category === "EXHIBIDORA_COMIDA")}
+            occupiedRooms={occupiedRooms}
+          />
         </div>
       )}
 
@@ -320,7 +308,7 @@ export default function RoomBoard({
           </div>
         </div>
       )}
-      
+
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -676,5 +664,88 @@ function OccupyForm({ roomId, guestId }: { roomId: number; guestId: number }) {
       )}
       <button className={button}>Ocupar habitación</button>
     </form>
+  );
+}
+
+
+function DeskSaleForm({
+  title,
+  products,
+  occupiedRooms,
+}: {
+  title: string;
+  products: DeskProduct[];
+  occupiedRooms: OccupiedRoom[];
+}) {
+  const [chargeToRoom, setChargeToRoom] = useState(false);
+
+  if (products.length === 0) {
+    return (
+      <div className="rounded-lg bg-[#F5EFE1] p-4">
+        <h2 className="mb-2 text-sm font-medium text-[#2E2015]">{title}</h2>
+        <p className="text-sm text-slate-500">Sin productos cargados.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg bg-[#F5EFE1] p-4">
+      <h2 className="mb-3 text-sm font-medium text-[#2E2015]">{title}</h2>
+      <form action={sellFromDesk} className="flex flex-wrap items-end gap-3">
+        <label className="text-xs text-slate-500">
+          Producto
+          <select name="productId" required className={`${input} mt-1 block`}>
+            {products.map((p) => (
+              <option key={p.productId} value={p.productId}>
+                {p.name} ({p.quantity} disp., {p.price.toLocaleString("es-CO")})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs text-slate-500">
+          Cantidad
+          <input
+            name="quantity"
+            type="number"
+            min="1"
+            defaultValue="1"
+            className={`${input} mt-1 block w-20`}
+          />
+        </label>
+
+        {occupiedRooms.length > 0 && (
+          <label className="flex items-center gap-2 text-xs text-slate-500">
+            <input
+              type="checkbox"
+              checked={chargeToRoom}
+              onChange={(e) => setChargeToRoom(e.target.checked)}
+            />
+            Cargar a una habitación
+          </label>
+        )}
+
+        {chargeToRoom ? (
+          <label className="text-xs text-slate-500">
+            Habitación
+            <select name="chargeToRoom" required className={`${input} mt-1 block`}>
+              {occupiedRooms.map((r) => (
+                <option key={r.reservationId} value={r.reservationId}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <select name="method" className={input}>
+            <option value="CASH">Efectivo</option>
+            <option value="CARD">Tarjeta</option>
+            <option value="TRANSFER">Transferencia</option>
+            <option value="OTHER">Otro</option>
+          </select>
+        )}
+
+        <button className={button}>Vender</button>
+      </form>
+    </div>
   );
 }

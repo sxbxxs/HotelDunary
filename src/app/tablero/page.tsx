@@ -94,6 +94,10 @@ export default async function TableroPage({
     };
   });
 
+    const occupiedRooms = cards
+    .filter((c) => c.isOccupied && c.reservationId)
+    .map((c) => ({ reservationId: c.reservationId!, label: `Hab. ${c.number} · ${c.guestName}` }));
+
   return (
     <div>
       <h1 className="font-display mb-1 text-3xl font-semibold text-white drop-shadow-md">
@@ -119,7 +123,9 @@ export default async function TableroPage({
           name: s.product.name,
           price: s.product.price,
           quantity: s.quantity,
+          category: s.product.category,
         }))}
+        occupiedRooms={occupiedRooms}
       />
     </div>
   );

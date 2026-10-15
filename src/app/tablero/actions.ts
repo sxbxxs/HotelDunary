@@ -420,46 +420,90 @@ export async function registerPaymentFromBoard(formData: FormData) {
 export async function sellFromDesk(formData: FormData) {
   const productId = Number(formData.get("productId"));
   const quantity = Number(formData.get("quantity"));
-  const method = String(formData.get("method"));
+  const chargeToRoom = String(formData.get("chargeToRoom") ?? "");
+  const method = String(formData.get("method") ?? "CASH");
 
-  if (!productId || !(quantity > 0) || !["CASH", "CARD", "TRANSFER", "OTHER"].includes(method)) {
+  if (!productId || !(quantity > 0)) {
     redirect("/tablero?error=" + encodeURIComponent("Elige un producto y una cantidad válida."));
   }
 
   let productName = "";
 
-  const error = await prisma.$transaction(async (tx) => {
-    const stock = await tx.frontDeskStock.findUnique({
-      where: { productId },
-      include: { product: true },
+  if (chargeToRoom) {
+    // Se carga a la cuenta de una habitación ocupada, como si fuera consumo de minibar
+    const reservationId = Number(chargeToRoom);
+    const error = await prisma.$transaction(async (tx) => {
+      const reservation = await tx.reservation.findUnique({ where: { id: reservationId } });
+      if (!reservation || reservation.status !== "CHECKED_IN") {
+        return "Esa habitación ya no está disponible para cargar consumo.";
+      }
+
+      const stock = await tx.frontDeskStock.findUnique({
+        where: { productId },
+        include: { product: true },
+      });
+      if (!stock) return "Ese producto no existe en la exhibidora.";
+      productName = stock.product.name;
+      if (stock.quantity < quantity) {
+        return `Solo quedan ${stock.quantity} unidades de ${stock.product.name}.`;
+      }
+
+      await tx.frontDeskStock.update({
+        where: { productId },
+        data: { quantity: { decrement: quantity } },
+      });
+
+      await tx.consumption.create({
+        data: { reservationId, productId, quantity, unitPrice: stock.product.price },
+      });
+      return null;
     });
-    if (!stock) return "Ese producto no existe en la exhibidora.";
-    productName = stock.product.name;
-    if (stock.quantity < quantity) {
-      return `Solo quedan ${stock.quantity} unidades de ${stock.product.name}.`;
+
+    if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+    await logAction(
+      "Vendió en exhibidora, cargado a habitación",
+      `${productName} x${quantity}`
+    );
+  } else {
+    if (!["CASH", "CARD", "TRANSFER", "OTHER"].includes(method)) {
+      redirect("/tablero?error=" + encodeURIComponent("Elige un medio de pago."));
     }
 
-    await tx.frontDeskStock.update({
-      where: { productId },
-      data: { quantity: { decrement: quantity } },
+    const error = await prisma.$transaction(async (tx) => {
+      const stock = await tx.frontDeskStock.findUnique({
+        where: { productId },
+        include: { product: true },
+      });
+      if (!stock) return "Ese producto no existe en la exhibidora.";
+      productName = stock.product.name;
+      if (stock.quantity < quantity) {
+        return `Solo quedan ${stock.quantity} unidades de ${stock.product.name}.`;
+      }
+
+      await tx.frontDeskStock.update({
+        where: { productId },
+        data: { quantity: { decrement: quantity } },
+      });
+
+      await tx.sale.create({
+        data: {
+          productId,
+          quantity,
+          unitPrice: stock.product.price,
+          method: method as "CASH" | "CARD" | "TRANSFER" | "OTHER",
+        },
+      });
+      return null;
     });
 
-    await tx.sale.create({
-      data: {
-        productId,
-        quantity,
-        unitPrice: stock.product.price,
-        method: method as "CASH" | "CARD" | "TRANSFER" | "OTHER",
-      },
-    });
-    return null;
-  });
+    if (error) redirect("/tablero?error=" + encodeURIComponent(error));
+    await logAction("Vendió en exhibidora (tablero)", `${productName} x${quantity}`);
+  }
 
-  if (error) redirect("/tablero?error=" + encodeURIComponent(error));
-
-  await logAction("Vendió en exhibidora (tablero)", `${productName} x${quantity}`);
   revalidatePath("/tablero");
   revalidatePath("/inventario");
+  revalidatePath("/reservas");
+  revalidatePath("/pagos");
   redirect("/tablero?ok=1");
 }
 
