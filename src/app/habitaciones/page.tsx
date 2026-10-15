@@ -33,13 +33,69 @@ async function createRoom(formData: FormData) {
   const number = String(formData.get("number") ?? "").trim();
   const floor = Number(formData.get("floor")) || null;
   const roomTypeId = Number(formData.get("roomTypeId"));
+  const hasMinibar = formData.get("hasMinibar") === "on";
   if (!number || !roomTypeId) return;
 
   const exists = await prisma.room.findUnique({ where: { number } });
   if (!exists) {
-    await prisma.room.create({ data: { number, floor, roomTypeId } });
+    const room = await prisma.room.create({
+      data: { number, floor, roomTypeId, hasMinibar },
+    });
+
+    if (hasMinibar) {
+      const minibarProducts = await prisma.product.findMany({
+        where: { category: "MINIBAR", active: true },
+      });
+      if (minibarProducts.length > 0) {
+        await prisma.roomStock.createMany({
+          data: minibarProducts.map((p) => ({
+            roomId: room.id,
+            productId: p.id,
+            quantity: 0,
+          })),
+        });
+      }
+    }
   }
   revalidatePath("/habitaciones");
+}
+
+async function enableMinibar(formData: FormData) {
+  "use server";
+  const roomId = Number(formData.get("roomId"));
+  if (!roomId) return;
+
+  const room = await prisma.room.findUnique({ where: { id: roomId } });
+  if (!room || room.hasMinibar) return;
+
+  await prisma.room.update({ where: { id: roomId }, data: { hasMinibar: true } });
+
+  const minibarProducts = await prisma.product.findMany({
+    where: { category: "MINIBAR", active: true },
+  });
+  for (const p of minibarProducts) {
+    const exists = await prisma.roomStock.findUnique({
+      where: { roomId_productId: { roomId, productId: p.id } },
+    });
+    if (!exists) {
+      await prisma.roomStock.create({ data: { roomId, productId: p.id, quantity: 0 } });
+    }
+  }
+  revalidatePath("/habitaciones");
+  revalidatePath("/inventario");
+}
+
+
+async function disableMinibar(formData: FormData) {
+  "use server";
+  const roomId = Number(formData.get("roomId"));
+  if (!roomId) return;
+
+  await prisma.roomStock.deleteMany({ where: { roomId } });
+  await prisma.room.update({ where: { id: roomId }, data: { hasMinibar: false } });
+
+  revalidatePath("/habitaciones");
+  revalidatePath("/inventario");
 }
 
 async function updateRoomStatus(formData: FormData) {
@@ -83,10 +139,11 @@ export default async function HabitacionesPage() {
 
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl font-semibold">Habitaciones</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Habitaciones</h1>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Tipos de habitación</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">
+          Tipos de habitacion</span></h2>
         <form action={createRoomType} className="mb-4 flex flex-wrap gap-3">
           <input name="name" placeholder="Nombre (ej. Doble)" required className={input} />
           <input name="capacity" type="number" min="1" placeholder="Capacidad" required className={input} />
@@ -124,13 +181,13 @@ export default async function HabitacionesPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Habitaciones</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Habitaciones</span></h2>
         {roomTypes.length === 0 ? (
           <p className="mb-4 text-sm text-slate-500">
             Primero agrega al menos un tipo de habitación.
           </p>
         ) : (
-          <form action={createRoom} className="mb-4 flex flex-wrap gap-3">
+          <form action={createRoom} className="mb-4 flex flex-wrap items-center gap-3">
             <input name="number" placeholder="Número (ej. 101)" required className={input} />
             <input name="floor" type="number" placeholder="Piso" className={input} />
             <select name="roomTypeId" required className={input}>
@@ -140,6 +197,10 @@ export default async function HabitacionesPage() {
                 </option>
               ))}
             </select>
+            <label className="flex items-center gap-2 text-sm text-white drop-shadow">
+              <input name="hasMinibar" type="checkbox" />
+              Minibar
+            </label>
             <button className={button}>Agregar habitación</button>
           </form>
         )}
@@ -152,6 +213,7 @@ export default async function HabitacionesPage() {
                 <th className="px-4 py-2">Piso</th>
                 <th className="px-4 py-2">Tipo</th>
                 <th className="px-4 py-2">Tarifa</th>
+                <th className="px-4 py-2">Minibar</th>
                 <th className="px-4 py-2">Estado de limpieza</th>
               </tr>
             </thead>
@@ -169,6 +231,19 @@ export default async function HabitacionesPage() {
                   <td className="px-4 py-2">{r.floor ?? "-"}</td>
                   <td className="px-4 py-2">{r.roomType.name}</td>
                   <td className="px-4 py-2">{cop.format(r.roomType.nightlyRate)}</td>
+                  <td className="px-4 py-2">
+                    {r.hasMinibar ? (
+                      <form action={disableMinibar}>
+                        <input type="hidden" name="roomId" value={r.id} />
+                        <button className={smallButton}>Desactivar</button>
+                      </form>
+                    ) : (
+                      <form action={enableMinibar}>
+                        <input type="hidden" name="roomId" value={r.id} />
+                        <button className={smallButton}>Activar</button>
+                      </form>
+                    )}
+                  </td>
                   <td className="px-4 py-2">
                     <form action={updateRoomStatus} className="flex gap-2">
                       <input type="hidden" name="id" value={r.id} />

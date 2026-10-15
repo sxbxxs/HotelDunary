@@ -106,10 +106,10 @@ export default async function InventarioPage() {
 
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl font-semibold">Inventario</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Inventario</h1>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Nuevo producto</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Nuevo producto</span></h2>
         <form action={createProduct} className="flex flex-wrap gap-3">
           <input name="name" placeholder="Nombre (ej. Chitos)" required className={input} />
           <input name="price" type="number" min="0" placeholder="Precio (COP)" required className={input} />
@@ -125,7 +125,7 @@ export default async function InventarioPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Exhibidoras de recepción</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Exhibidoras de recepcion</span></h2>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">
@@ -166,7 +166,7 @@ export default async function InventarioPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Canastas de minibar por habitación</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Canasta de mini bar por habitacion</span></h2>
         {minibarProducts.length === 0 ? (
           <p className="text-sm text-slate-500">
             Todavía no hay productos de minibar.

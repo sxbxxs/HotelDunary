@@ -49,6 +49,7 @@ model Room {
   floor        Int?
   status       HousekeepingStatus @default(CLEAN)
   active       Boolean            @default(true)
+  hasMinibar   Boolean            @default(false)
   notes        String?
   roomTypeId   Int
   roomType     RoomType           @relation(fields: [roomTypeId], references: [id])
@@ -84,6 +85,11 @@ model Reservation {
   children   Int                @default(0)
   notes      String?
   cancelReason   String?
+  lateFee        Int                @default(0)
+  hasVehicle     Boolean            @default(false)
+  vehicleType    String?
+  vehiclePlate   String?
+  vehicleColor   String? 
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
   roomId     Int
@@ -209,16 +215,27 @@ model AuditLog {
 }
 
 model HotelSettings {
-  id            Int      @id @default(1)
-  hotelName     String   @default("Mi Hotel")
-  nit           String?
-  address       String?
-  phone         String?
-  logoPath      String?
+  id             Int      @id @default(1)
+  hotelName      String   @default("Mi Hotel")
+  nit            String?
+  address        String?
+  phone          String?
+  logoPath       String?
   introVideoPath String?
-  primaryColor  String   @default("#0f172a")
-  accentColor   String   @default("#0ea5e9")
-  updatedAt     DateTime @updatedAt
+  backgroundPath String?
+  primaryColor   String   @default("#2A1215")
+  accentColor    String   @default("#6B1F24")
+  hasPool          Boolean  @default(false)
+  poolGuestsFree   Boolean  @default(true)
+  poolPrice        Int      @default(0)
+  hasParking       Boolean  @default(false)
+  parkingCarHour   Int      @default(0)
+  parkingCarDay    Int      @default(0)
+  parkingMotoHour  Int      @default(0)
+  parkingMotoDay   Int      @default(0)
+  parkingTruckHour Int      @default(0)
+  parkingTruckDay  Int      @default(0)  
+  updatedAt      DateTime @updatedAt
 }
 
 model Shift {
@@ -235,3 +252,28 @@ model Shift {
   notes         String?
   closedAt      DateTime?
 }
+
+
+model PoolPass {
+  id            Int      @id @default(autoincrement())
+  guestName     String
+  isGuestOfHotel Boolean
+  reservationId Int?
+  amount        Int
+  method        PaymentMethod?
+  soldAt        DateTime @default(now())
+}
+
+
+model ParkingEntry {
+  id          Int       @id @default(autoincrement())
+  vehicleType String // CAR, MOTORCYCLE, TRUCK
+  plate       String
+  color       String?
+  entryAt     DateTime  @default(now())
+  exitAt      DateTime?
+  billingMode String? // HOUR o DAY, se fija al salir
+  amount      Int?
+  method      PaymentMethod?
+}
+

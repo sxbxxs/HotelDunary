@@ -32,6 +32,16 @@ async function updateSettings(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const primaryColor = String(formData.get("primaryColor") ?? "#0f172a");
   const accentColor = String(formData.get("accentColor") ?? "#0ea5e9");
+  const hasPool = formData.get("hasPool") === "on";
+  const poolGuestsFree = formData.get("poolGuestsFree") === "on";
+  const poolPrice = Math.round(Number(formData.get("poolPrice")) || 0);
+  const hasParking = formData.get("hasParking") === "on";
+  const parkingCarHour = Math.round(Number(formData.get("parkingCarHour")) || 0);
+  const parkingCarDay = Math.round(Number(formData.get("parkingCarDay")) || 0);
+  const parkingMotoHour = Math.round(Number(formData.get("parkingMotoHour")) || 0);
+  const parkingMotoDay = Math.round(Number(formData.get("parkingMotoDay")) || 0);
+  const parkingTruckHour = Math.round(Number(formData.get("parkingTruckHour")) || 0);
+  const parkingTruckDay = Math.round(Number(formData.get("parkingTruckDay")) || 0);  
 
   const current = await getHotelSettings();
 
@@ -41,9 +51,34 @@ async function updateSettings(formData: FormData) {
     logoPath = await saveFile(logoFile, "logo");
   }
 
+  let backgroundPath = current.backgroundPath;
+  const backgroundFile = formData.get("background") as File | null;
+  if (backgroundFile && backgroundFile.size > 0) {
+    backgroundPath = await saveFile(backgroundFile, "background");
+  }
+
   await prisma.hotelSettings.update({
     where: { id: 1 },
-    data: { hotelName, nit, address, phone, primaryColor, accentColor, logoPath },
+    data: {
+      hotelName,
+      nit,
+      address,
+      phone,
+      primaryColor,
+      accentColor,
+      logoPath,
+      backgroundPath,
+      hasPool,
+      poolGuestsFree,
+      poolPrice,
+      hasParking,
+      parkingCarHour,
+      parkingCarDay,
+      parkingMotoHour,
+      parkingMotoDay,
+      parkingTruckHour,
+      parkingTruckDay,
+    },
   });
 
   await logAction("Actualizó configuración del hotel");
@@ -75,7 +110,7 @@ export default async function ConfiguracionPage({
 
   return (
     <div className="max-w-xl space-y-6">
-      <h1 className="text-2xl font-semibold">Configuración del hotel</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Configuración del hotel</h1>
 
       {ok && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -85,25 +120,25 @@ export default async function ConfiguracionPage({
 
       <form action={updateSettings} className="space-y-4">
         <label className="block text-xs text-slate-500">
-          Nombre del hotel
+          <span className="text-white drop-shadow">Nombre del hotel</span>
           <input name="hotelName" defaultValue={settings.hotelName} required className={input} />
         </label>
         <label className="block text-xs text-slate-500">
-          NIT
+          <span className="text-white drop-shadow">NIT</span>
           <input name="nit" defaultValue={settings.nit ?? ""} className={input} />
         </label>
         <label className="block text-xs text-slate-500">
-          Dirección
+          <span className="text-white drop-shadow">Direccion</span>
           <input name="address" defaultValue={settings.address ?? ""} className={input} />
         </label>
         <label className="block text-xs text-slate-500">
-          Teléfono
+          <span className="text-white drop-shadow">Telefono</span>
           <input name="phone" defaultValue={settings.phone ?? ""} className={input} />
         </label>
 
         <div className="flex gap-6">
           <label className="text-xs text-slate-500">
-            Color principal
+            <span className="text-white drop-shadow">Color principal</span>
             <input
               name="primaryColor"
               type="color"
@@ -112,7 +147,7 @@ export default async function ConfiguracionPage({
             />
           </label>
           <label className="text-xs text-slate-500">
-            Color de acento
+            <span className="text-white drop-shadow">Color de acento</span>
             <input
               name="accentColor"
               type="color"
@@ -123,14 +158,117 @@ export default async function ConfiguracionPage({
         </div>
 
         <label className="block text-xs text-slate-500">
-          Logo del hotel (imagen)
+          <span className="text-white drop-shadow">Logo del hotel (imagen) </span>
           {settings.logoPath && (
             <img src={settings.logoPath} alt="Logo actual" className="my-2 h-16 w-auto" />
           )}
           <input name="logo" type="file" accept="image/*" className={input} />
         </label>
+        
+        <label className="block text-xs text-slate-500">
+          <span className="text-white drop-shadow">Imagen de fondo (se usa en toda la aplicacion) </span>
+          {settings.backgroundPath && (
+            <img src={settings.backgroundPath} alt="Fondo actual" className="my-2 h-24 w-auto rounded" />
+          )}
+          <input name="background" type="file" accept="image/*" className={input} />
+        </label>
 
+        
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <label className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input name="hasPool" type="checkbox" defaultChecked={settings.hasPool} />
+            El hotel tiene piscina
+          </label>
+          <div className="space-y-2 pl-6 text-xs text-slate-500">
+            <label className="flex items-center gap-2">
+              <input name="poolGuestsFree" type="checkbox" defaultChecked={settings.poolGuestsFree} />
+              Los huéspedes entran gratis (solo paga quien no se hospeda). Si lo desmarcas, todos pagan la manilla, incluidos los huéspedes.
+            </label>
+            <label className="block">
+              Precio de la manilla (por estadía o por entrada, según lo anterior)
+              <input
+                name="poolPrice"
+                type="number"
+                min="0"
+                defaultValue={settings.poolPrice}
+                className={`${input} mt-1`}
+              />
+            </label>
+          </div>
+        </div>
 
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <label className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input name="hasParking" type="checkbox" defaultChecked={settings.hasParking} />
+            El hotel tiene parqueadero
+          </label>
+          <p className="mb-2 pl-6 text-xs text-slate-500">
+            Los huéspedes con vehículo registrado parquean gratis. Esto es para quien solo
+            quiere parquear sin hospedarse.
+          </p>
+          <div className="grid grid-cols-2 gap-3 pl-6 text-xs text-slate-500 sm:grid-cols-3">
+            <label className="block">
+              Carro / hora
+              <input
+                name="parkingCarHour"
+                type="number"
+                min="0"
+                defaultValue={settings.parkingCarHour}
+                className={`${input} mt-1`}
+              />
+            </label>
+            <label className="block">
+              Carro / día
+              <input
+                name="parkingCarDay"
+                type="number"
+                min="0"
+                defaultValue={settings.parkingCarDay}
+                className={`${input} mt-1`}
+              />
+            </label>
+            <label className="block">
+              Moto / hora
+              <input
+                name="parkingMotoHour"
+                type="number"
+                min="0"
+                defaultValue={settings.parkingMotoHour}
+                className={`${input} mt-1`}
+              />
+            </label>
+            <label className="block">
+              Moto / día
+              <input
+                name="parkingMotoDay"
+                type="number"
+                min="0"
+                defaultValue={settings.parkingMotoDay}
+                className={`${input} mt-1`}
+              />
+            </label>
+            <label className="block">
+              Camión / hora
+              <input
+                name="parkingTruckHour"
+                type="number"
+                min="0"
+                defaultValue={settings.parkingTruckHour}
+                className={`${input} mt-1`}
+              />
+            </label>
+            <label className="block">
+              Camión / día
+              <input
+                name="parkingTruckDay"
+                type="number"
+                min="0"
+                defaultValue={settings.parkingTruckDay}
+                className={`${input} mt-1`}
+              />
+            </label>
+          </div>
+        </div>  
 
         <button className={button}>Guardar configuración</button>
       </form>

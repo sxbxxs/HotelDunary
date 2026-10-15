@@ -18,7 +18,23 @@ export default async function RootLayout({
   const settings = await getHotelSettings();
   return (
     <html lang="es" style={{ "--color-primary": settings.primaryColor, "--color-accent": settings.accentColor } as React.CSSProperties}>
-            <body className="flex bg-slate-50 text-slate-900">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body
+        className="flex text-slate-900"
+        style={{
+          backgroundColor: settings.primaryColor,
+          backgroundImage: settings.backgroundPath ? `url(${settings.backgroundPath})` : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        }}
+      >
         <AppShell
           userName={session?.name ?? null}
           isAdmin={session?.role === "ADMIN"}

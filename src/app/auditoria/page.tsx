@@ -20,8 +20,8 @@ export default async function AuditoriaPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Auditoría</h1>
-      <p className="text-sm text-slate-500">Últimas 200 acciones registradas en el sistema.</p>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Auditoría</h1>
+      <p className="text-sm text-slate-500"><span className="text-white drop-shadow">Ultimas 200 acciones registradas en el sistema</span></p>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">

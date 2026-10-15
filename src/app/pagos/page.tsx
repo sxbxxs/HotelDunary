@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAction } from "@/lib/audit";
+import { reservationTotalLive } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -38,17 +39,15 @@ async function createPayment(formData: FormData) {
   const error = await prisma.$transaction(async (tx) => {
     const reservation = await tx.reservation.findUnique({
       where: { id: reservationId },
+      include: { payments: true, consumptions: true },
     });
     if (!reservation || reservation.status === "CANCELLED") {
       return "La reserva no existe o está cancelada.";
     }
 
-    const paid = await tx.payment.aggregate({
-      where: { reservationId },
-      _sum: { amount: true },
-    });
-    const balance =
-      nightsOf(reservation) * reservation.nightlyRate - (paid._sum.amount ?? 0);
+    const total = reservationTotalLive(reservation);
+    const paid = reservation.payments.reduce((sum, p) => sum + p.amount, 0);
+    const balance = total - paid;
 
     if (amount > balance) {
       return `El pago supera el saldo pendiente (${cop.format(balance)}).`;
@@ -98,7 +97,7 @@ export default async function PagosPage({
       where: { status: { not: "CANCELLED" } },
       orderBy: { checkIn: "desc" },
       take: 100,
-      include: { guest: true, room: true, payments: true },
+      include: { guest: true, room: true, payments: true, consumptions: true },
     }),
     prisma.payment.findMany({
       orderBy: { paidAt: "desc" },
@@ -108,7 +107,7 @@ export default async function PagosPage({
   ]);
 
   const rows = reservations.map((r) => {
-    const total = nightsOf(r) * r.nightlyRate;
+    const total = reservationTotalLive(r);
     const paid = r.payments.reduce((sum, p) => sum + p.amount, 0);
     return { ...r, total, paid, balance: total - paid };
   });
@@ -118,7 +117,7 @@ export default async function PagosPage({
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Caja y pagos</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Caja y pagos</h1>
 
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

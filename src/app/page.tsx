@@ -45,10 +45,12 @@ export default async function CalendarioPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold">Calendario de ocupación</h1>
-      <p className="mb-4 text-sm text-slate-500">Próximos {DAYS} días</p>
+      <h1 className="font-display mb-1 text-3xl font-semibold text-white drop-shadow-md">
+        Calendario de ocupación
+      </h1>
+      <p className="mb-4 text-sm text-white/80 drop-shadow">Próximos {DAYS} días</p>
 
-      <div className="mb-4 flex gap-4 text-sm">
+      <div className="mb-4 flex gap-4 text-sm text-white drop-shadow">
         <span className="flex items-center gap-2">
           <span className="h-3 w-3 rounded bg-emerald-500" /> Hospedado
         </span>

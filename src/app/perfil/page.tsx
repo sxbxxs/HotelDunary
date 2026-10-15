@@ -53,7 +53,7 @@ export default async function PerfilPage({
 
   return (
     <div className="max-w-md space-y-6">
-      <h1 className="text-2xl font-semibold">Mi perfil</h1>
+      <h1 className="text-2xl font-semibold text-white drop-shadow">Mi perfil</h1>
       <p className="text-sm text-slate-500">{session.name} · {session.username}</p>
 
       {error && (
@@ -66,18 +66,18 @@ export default async function PerfilPage({
           Clave actualizada.
         </div>
       )}
-
+ 
       <form action={changePassword} className="space-y-3">
         <label className="text-xs text-slate-500">
-          Clave actual
+          <span className="text-white drop-shadow">Clave actual</span>
           <input name="current" type="password" required className={input} />
         </label>
         <label className="text-xs text-slate-500">
-          Nueva clave
+          <span className="text-white drop-shadow">Nueva clave</span>
           <input name="next" type="password" required className={input} />
         </label>
         <label className="text-xs text-slate-500">
-          Confirmar nueva clave
+          <span className="text-white drop-shadow">Confirmar nueva clave</span>
           <input name="confirm" type="password" required className={input} />
         </label>
         <button className={button}>Cambiar clave</button>

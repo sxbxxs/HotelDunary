@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BedDouble, PanelsTopBottom, Car, Bike, DollarSign } from "lucide-react";
 import {
   checkInReservation,
   checkOutReservation,
@@ -12,6 +13,7 @@ import {
   reserveForLater,
   findGuestByDocument,
   createGuestInline,
+  registerExpenseFromBoard,
   type Guest,
 } from "./actions";
 
@@ -28,9 +30,20 @@ type RoomCard = {
   balance: number;
   total: number;
   products: { productId: number; name: string; price: number; quantity: number }[];
+  hasVehicle: boolean;
+  vehicleType: string;
+  vehiclePlate: string;
 };
 
-type DeskProduct = { productId: number; name: string; price: number; quantity: number };
+type DeskProduct = {
+  productId: number;
+  name: string;
+  price: number;
+  quantity: number;
+  category: string;
+};
+
+type OccupiedRoom = { reservationId: number; label: string };
 
 const housekeepingLabel: Record<string, string> = {
   CLEAN: "Libre",
@@ -48,18 +61,25 @@ const input = "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
 export default function RoomBoard({
   rooms,
   deskProducts,
+  occupiedRooms,
 }: {
   rooms: RoomCard[];
   deskProducts: DeskProduct[];
+  occupiedRooms: OccupiedRoom[];
 }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [showExpense, setShowExpense] = useState(false);
   const selected = rooms.find((r) => r.id === selectedId) ?? null;
 
   const [search, setSearch] = useState("");
   const term = search.trim().toLowerCase();
   const matches =
     term.length > 0
-      ? rooms.filter((r) => r.guestName.toLowerCase().includes(term))
+      ? rooms.filter(
+          (r) =>
+            r.guestName.toLowerCase().includes(term) ||
+            r.vehiclePlate.toLowerCase().includes(term)
+        )
       : [];
 
   const [filter, setFilter] = useState<"all" | "free" | "occupied" | "dirty" | "arriving">("all");
@@ -76,12 +96,12 @@ export default function RoomBoard({
   );
 
   function cardClass(r: RoomCard) {
-    if (r.isOccupied) return "bg-sky-500 text-white";
-    if (r.isArriving) return "border-2 border-dashed border-sky-500 bg-white";
+    if (r.isOccupied) return "bg-[#7B241C] text-white";
+    if (r.isArriving) return "border-2 border-dashed border-[#7B241C] bg-[#F5EFE1]";
     if (r.status === "DIRTY") return "bg-amber-400 text-amber-950";
     if (r.status === "CLEANING") return "bg-amber-200 text-amber-900";
     if (r.status === "MAINTENANCE") return "bg-slate-200 text-slate-500";
-    return "border-2 border-sky-500 bg-white";
+    return "border-2 border-[#7B241C] bg-[#F5EFE1]";
   }
 
   return (
@@ -101,16 +121,16 @@ export default function RoomBoard({
           onClick={() => setFilter("free")}
           className={`rounded-md border-2 px-3 py-1.5 text-sm ${
             filter === "free"
-              ? "border-sky-500 bg-sky-500 text-white"
-              : "border-sky-500 bg-white text-sky-700 hover:bg-sky-50"
+              ? "border-[#7B241C] bg-[#7B241C] text-white"
+              : "border-[#7B241C] bg-white text-[#7B241C] hover:bg-red-50"
           }`}
         >
           Libres ({rooms.filter((r) => !r.isOccupied && !r.isArriving && r.status === "CLEAN").length})
         </button>
         <button
           onClick={() => setFilter("occupied")}
-          className={`rounded-md border border-sky-500 bg-sky-500 px-3 py-1.5 text-sm text-white ${
-            filter === "occupied" ? "ring-2 ring-offset-2 ring-sky-700" : ""
+          className={`rounded-md border border-[#7B241C] bg-[#7B241C] px-3 py-1.5 text-sm text-white ${
+            filter === "occupied" ? "ring-2 ring-offset-2 ring-[#5A1A15]" : ""
           }`}
         >
           Ocupadas ({rooms.filter((r) => r.isOccupied).length})
@@ -127,8 +147,8 @@ export default function RoomBoard({
           onClick={() => setFilter("arriving")}
           className={`rounded-md border-2 border-dashed px-3 py-1.5 text-sm ${
             filter === "arriving"
-              ? "border-sky-500 bg-sky-100 text-sky-800"
-              : "border-sky-500 bg-white text-sky-700 hover:bg-sky-50"
+              ? "border-[#7B241C] bg-red-50 text-[#7B241C]"
+              : "border-[#7B241C] bg-white text-[#7B241C] hover:bg-red-50"
           }`}
         >
           Reservadas hoy ({rooms.filter((r) => r.isArriving).length})
@@ -136,39 +156,17 @@ export default function RoomBoard({
       </div>
 
       {deskProducts.length > 0 && (
-        <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-medium text-slate-600">
-            Venta en recepción (exhibidoras)
-          </h2>
-          <form action={sellFromDesk} className="flex flex-wrap items-end gap-3">
-            <label className="text-xs text-slate-500">
-              Producto
-              <select name="productId" required className={`${input} mt-1 block`}>
-                {deskProducts.map((p) => (
-                  <option key={p.productId} value={p.productId}>
-                    {p.name} ({p.quantity} disp., {p.price.toLocaleString("es-CO")})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs text-slate-500">
-              Cantidad
-              <input
-                name="quantity"
-                type="number"
-                min="1"
-                defaultValue="1"
-                className={`${input} mt-1 block w-20`}
-              />
-            </label>
-            <select name="method" className={input}>
-              <option value="CASH">Efectivo</option>
-              <option value="CARD">Tarjeta</option>
-              <option value="TRANSFER">Transferencia</option>
-              <option value="OTHER">Otro</option>
-            </select>
-            <button className={button}>Vender</button>
-          </form>
+        <div className="mb-6 grid gap-4 sm:grid-cols-2">
+          <DeskSaleForm
+            title="Exhibidora de bebidas"
+            products={deskProducts.filter((p) => p.category === "EXHIBIDORA_BEBIDAS")}
+            occupiedRooms={occupiedRooms}
+          />
+          <DeskSaleForm
+            title="Exhibidora de comida"
+            products={deskProducts.filter((p) => p.category === "EXHIBIDORA_COMIDA")}
+            occupiedRooms={occupiedRooms}
+          />
         </div>
       )}
 
@@ -176,7 +174,7 @@ export default function RoomBoard({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar huésped por nombre"
+          placeholder="Buscar por nombre o placa del vehículo"
           className={`${input} w-full max-w-sm`}
         />
         {term.length > 0 && (
@@ -188,7 +186,7 @@ export default function RoomBoard({
                 <button
                   key={r.id}
                   onClick={() => setSelectedId(r.id)}
-                  className={smallButton}
+                  className="rounded-md border border-[#7B241C] bg-[#F5EFE1] px-3 py-1.5 text-sm font-medium text-[#7B241C] hover:bg-white"
                 >
                   Hab. {r.number} · {r.guestName}
                 </button>
@@ -200,7 +198,7 @@ export default function RoomBoard({
 
       {floors.map((floor) => (
         <div key={floor} className="mb-6">
-          <h2 className="mb-2 text-sm font-medium text-slate-600">
+          <h2 className="mb-2 text-sm font-medium text-white drop-shadow">
             {floor === 0 ? "Sin piso asignado" : `Piso ${floor}`}
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
@@ -213,20 +211,35 @@ export default function RoomBoard({
                   className={`flex min-h-24 flex-col justify-between rounded-lg p-3 text-left text-sm transition ${cardClass(
                     room
                   )} ${
-                    selectedId === room.id || matches.some((m) => m.id === room.id)
+                    selectedId === room.id
                       ? "ring-2 ring-offset-2 ring-slate-900"
+                      : matches.some((m) => m.id === room.id)
+                      ? "ring-4 ring-offset-2 ring-amber-400"
                       : ""
                   }`}
                 >
                   <div className="flex items-baseline justify-between">
                     <span className="text-base font-semibold">{room.number}</span>
-                    <span className="text-xs opacity-80">{room.roomTypeName}</span>
+                    <span className="flex items-center gap-1 text-xs opacity-80">
+                      {room.roomTypeName}
+                      {room.roomTypeName.toLowerCase().includes("camarote") ? (
+                        <PanelsTopBottom size={16} />
+                      ) : (
+                        <BedDouble size={16} />
+                      )}
+                    </span>
                   </div>
                   <div>
                     {room.isOccupied || room.isArriving ? (
                       <>
-                        <div className="truncate text-xs font-medium">
+                        <div className="flex items-center gap-1 truncate text-xs font-medium">
                           {room.isArriving ? "Llega hoy" : "Ocupada"}
+                          {room.hasVehicle &&
+                            (room.vehicleType === "MOTORCYCLE" ? (
+                              <Bike size={13} />
+                            ) : (
+                              <Car size={13} />
+                            ))}
                         </div>
                         <div className="truncate text-xs">{room.guestName}</div>
                         {room.isOccupied && room.balance > 0 && (
@@ -246,6 +259,55 @@ export default function RoomBoard({
           </div>
         </div>
       ))}
+            <button
+        onClick={() => setShowExpense(true)}
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#7B241C] text-white shadow-lg hover:bg-[#5A1A15]"
+        title="Registrar egreso"
+      >
+        <DollarSign size={24} />
+      </button>
+
+      {showExpense && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setShowExpense(false)}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-lg bg-[#F5EFE1] p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowExpense(false)}
+              className="absolute right-4 top-4 text-sm text-slate-400 hover:text-slate-700"
+            >
+              ✕
+            </button>
+            <h3 className="mb-3 text-lg font-medium text-[#2E2015]">Registrar egreso</h3>
+            <form action={registerExpenseFromBoard} className="space-y-3">
+              <label className="block text-xs text-slate-600">
+                Concepto
+                <input
+                  name="concept"
+                  placeholder="Ej. Papel higiénico"
+                  required
+                  className={`${input} mt-1 block w-full`}
+                />
+              </label>
+              <label className="block text-xs text-slate-600">
+                Valor (COP)
+                <input
+                  name="amount"
+                  type="number"
+                  min="1"
+                  required
+                  className={`${input} mt-1 block w-full`}
+                />
+              </label>
+              <button className={button}>Registrar</button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {selected && (
         <div
@@ -457,21 +519,7 @@ function FreeRoomPanel({ roomId }: { roomId: number }) {
         </div>
 
         {tab === "occupy" ? (
-          <form action={occupyNow} className="flex flex-wrap items-end gap-3">
-            <input type="hidden" name="roomId" value={roomId} />
-            <input type="hidden" name="guestId" value={chosenGuest.id} />
-            <label className="text-xs text-slate-500">
-              Noches
-              <input
-                name="nights"
-                type="number"
-                min="1"
-                defaultValue="1"
-                className={`${input} mt-1 block w-20`}
-              />
-            </label>
-            <button className={button}>Ocupar habitación</button>
-          </form>
+          <OccupyForm roomId={roomId} guestId={chosenGuest.id} />
         ) : (
           <form action={reserveForLater} className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="roomId" value={roomId} />
@@ -561,6 +609,143 @@ function FreeRoomPanel({ roomId }: { roomId: number }) {
           </div>
         </form>
       )}
+    </div>
+  );
+}
+
+function OccupyForm({ roomId, guestId }: { roomId: number; guestId: number }) {
+  const [hasVehicle, setHasVehicle] = useState(false);
+
+  return (
+    <form action={occupyNow} className="flex flex-wrap items-end gap-3">
+      <input type="hidden" name="roomId" value={roomId} />
+      <input type="hidden" name="guestId" value={guestId} />
+      <label className="text-xs text-slate-500">
+        Noches
+        <input
+          name="nights"
+          type="number"
+          min="1"
+          defaultValue="1"
+          className={`${input} mt-1 block w-20`}
+        />
+      </label>
+      <label className="flex items-center gap-2 text-xs text-slate-500">
+        <input
+          type="checkbox"
+          name="hasVehicle"
+          checked={hasVehicle}
+          onChange={(e) => setHasVehicle(e.target.checked)}
+        />
+        Tiene vehículo
+      </label>
+      {hasVehicle && (
+        <>
+          <label className="text-xs text-slate-500">
+            Tipo
+            <select name="vehicleType" className={`${input} mt-1 block w-28`}>
+              <option value="CAR">Carro</option>
+              <option value="MOTORCYCLE">Moto</option>
+            </select>
+          </label>
+          <label className="text-xs text-slate-500">
+            Placa
+            <input
+              name="vehiclePlate"
+              placeholder="ABC123"
+              className={`${input} mt-1 block w-24 uppercase`}
+            />
+          </label>
+          <label className="text-xs text-slate-500">
+            Color
+            <input name="vehicleColor" placeholder="Rojo" className={`${input} mt-1 block w-24`} />
+          </label>
+        </>
+      )}
+      <button className={button}>Ocupar habitación</button>
+    </form>
+  );
+}
+
+
+function DeskSaleForm({
+  title,
+  products,
+  occupiedRooms,
+}: {
+  title: string;
+  products: DeskProduct[];
+  occupiedRooms: OccupiedRoom[];
+}) {
+  const [chargeToRoom, setChargeToRoom] = useState(false);
+
+  if (products.length === 0) {
+    return (
+      <div className="rounded-lg bg-[#F5EFE1] p-4">
+        <h2 className="mb-2 text-sm font-medium text-[#2E2015]">{title}</h2>
+        <p className="text-sm text-slate-500">Sin productos cargados.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg bg-[#F5EFE1] p-4">
+      <h2 className="mb-3 text-sm font-medium text-[#2E2015]">{title}</h2>
+      <form action={sellFromDesk} className="flex flex-wrap items-end gap-3">
+        <label className="text-xs text-slate-500">
+          Producto
+          <select name="productId" required className={`${input} mt-1 block`}>
+            {products.map((p) => (
+              <option key={p.productId} value={p.productId}>
+                {p.name} ({p.quantity} disp., {p.price.toLocaleString("es-CO")})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs text-slate-500">
+          Cantidad
+          <input
+            name="quantity"
+            type="number"
+            min="1"
+            defaultValue="1"
+            className={`${input} mt-1 block w-20`}
+          />
+        </label>
+
+        {occupiedRooms.length > 0 && (
+          <label className="flex items-center gap-2 text-xs text-slate-500">
+            <input
+              type="checkbox"
+              checked={chargeToRoom}
+              onChange={(e) => setChargeToRoom(e.target.checked)}
+            />
+            Cargar a una habitación
+          </label>
+        )}
+
+        {chargeToRoom ? (
+          <label className="text-xs text-slate-500">
+            Habitación
+            <select name="chargeToRoom" required className={`${input} mt-1 block`}>
+              {occupiedRooms.map((r) => (
+                <option key={r.reservationId} value={r.reservationId}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <select name="method" className={input}>
+            <option value="CASH">Efectivo</option>
+            <option value="CARD">Tarjeta</option>
+            <option value="TRANSFER">Transferencia</option>
+            <option value="OTHER">Otro</option>
+          </select>
+        )}
+
+        <button className={button}>Vender</button>
+      </form>
     </div>
   );
 }

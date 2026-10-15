@@ -109,7 +109,7 @@ export default async function EditarHuespedPage({
         <Link href="/huespedes" className="text-sm text-slate-500 hover:underline">
           ← Volver a huéspedes
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold">
+        <h1 className="mt-2 text-2xl font-semibold text-white drop-shadow">
           Editar: {guest.firstName} {guest.lastName}
         </h1>
       </div>
