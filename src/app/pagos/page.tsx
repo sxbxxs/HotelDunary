@@ -131,10 +131,10 @@ export default async function PagosPage({
       )}
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Registrar pago</h2>
+        <h2 className="mb-3 text-lg font-medium"><span className="text-white drop-shadow">Registrar Pago</span></h2>
         {pending.length === 0 ? (
           <p className="text-sm text-slate-500">
-            No hay reservas con saldo pendiente.
+            <span className="text-white drop-shadow">No hay reservas con saldo pendiente</span>
           </p>
         ) : (
           <form action={createPayment} className="flex flex-wrap items-end gap-3">
@@ -173,9 +173,9 @@ export default async function PagosPage({
 
       <section>
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-lg font-medium">Saldos por reserva</h2>
+          <h2 className="text-lg font-medium"><span className="text-white drop-shadow">Saldos por reserva</span></h2>
           <span className="text-sm text-slate-500">
-            Pendiente total: <strong>{cop.format(totalPending)}</strong>
+            <span className="text-white drop-shadow">Pendiente total:</span> <strong>{cop.format(totalPending)}</strong>
           </span>
         </div>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
